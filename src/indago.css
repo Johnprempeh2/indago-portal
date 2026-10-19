@@ -261,8 +261,11 @@
   .indago header.top { padding: 14px 0 12px; }
   .indago .gs-logo { max-width: 120px; }
   .indago .app-name .faint { display: none; }
-  /* CSV export is a desk task; on a phone it only pushes the content down. */
-  .indago .export { display: none; }
+  /* CSV export stays on phones: one compact row, sheet picker takes the free width. */
+  .indago .top-actions { flex: 1 1 100%; }
+  .indago .export { flex: 1 1 220px; min-width: 0; }
+  .indago .export select { flex: 1 1 auto; min-width: 0; font-size: 16px; min-height: 40px; }
+  .indago .export .btn { flex: none; min-height: 40px; }
   .indago .cover-band { padding: 20px 18px; margin-top: 16px; }
   .indago .cover-band h1 { font-size: 24px; letter-spacing: -.5px; }
   .indago .gov .what { display: none; }

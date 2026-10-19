@@ -54,4 +54,5 @@ No client data is in this folder. The real toolkit text and register rows arrive
 - Tabs follow the WAI-ARIA tabs pattern: arrow keys, Home and End; one tab stop; the address keeps `#plan`, `#risks` and so on.
 - "Skip to content" link; one visible focus ring on every control.
 - Under 640 px, tables become one card per row with labelled fields; filters wrap two per row; the cover
-  shows on the Control centre only; CSV export is hidden on phones.
+  shows on the Control centre only; CSV export is one compact row under the header.
+- Changing tab puts the new screen's heading just below the sticky tab bar, from any scroll position.

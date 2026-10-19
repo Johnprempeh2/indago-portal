@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { REG, TABS } from './model/options.mjs';
 import { EXPORT_SHEETS, sheetRows, toCsv } from './model/indago-model.mjs';
 import { TabList } from './screens/ui.jsx';
+import { panelScrollDelta } from './screens/panel-scroll.mjs';
 import ControlCentre from './screens/ControlCentre.jsx';
 import WorkPlan from './screens/WorkPlan.jsx';
 import Gates from './screens/Gates.jsx';
@@ -63,9 +64,27 @@ export default function IndagoApp({ store, headerSlot, status }) {
   const open = (id) => {
     setTab(id);
     if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
-    const nav = document.querySelector('.tabs-bar');
-    if (nav && nav.getBoundingClientRect().top < 0) nav.scrollIntoView({ block: 'start' });
   };
+
+  // On every tab change (click, keys, hash), put the new panel's heading
+  // fully below the sticky tab bar instead of keeping the old scroll position.
+  const navRef = useRef(null);
+  const panelRef = useRef(null);
+  const firstRender = useRef(true);
+  useLayoutEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    const nav = navRef.current;
+    const panel = panelRef.current;
+    if (!nav || !panel) return;
+    const n = nav.getBoundingClientRect();
+    const dy = panelScrollDelta({
+      navTop: n.top,
+      navBottom: n.bottom,
+      panelTop: panel.getBoundingClientRect().top,
+      gap: parseFloat(getComputedStyle(nav).marginBottom) || 0,
+    });
+    if (dy) window.scrollBy({ top: dy, behavior: 'instant' });
+  }, [tab]);
 
   const Screen = SCREENS[tab];
   return (
@@ -101,11 +120,11 @@ export default function IndagoApp({ store, headerSlot, status }) {
           </section>
         )}
 
-        <nav className="tabs-bar" aria-label="Portal sections">
+        <nav ref={navRef} className="tabs-bar" aria-label="Portal sections">
           <TabList tabs={TABS} current={tab} onSelect={open} label="Portal sections" idPrefix="indago" />
         </nav>
 
-        <main id="indago-panel" className="panel" role="tabpanel" aria-labelledby={`indago-tab-${tab}`} tabIndex={-1}>
+        <main ref={panelRef} id="indago-panel" className="panel" role="tabpanel" aria-labelledby={`indago-tab-${tab}`} tabIndex={-1}>
           <Screen state={state} canEdit={canEdit} actions={actions} onOpen={open} />
         </main>
 
