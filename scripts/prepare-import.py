@@ -6,6 +6,7 @@ The output contains client text. Keep it outside Git and apply only after the
 import argparse
 import json
 import re
+import subprocess
 import sys
 import zipfile
 from pathlib import Path
@@ -69,16 +70,48 @@ def sql(value):
     return "'" + str(value).replace("'", "''") + "'"
 
 
+def portal_toolkit(path):
+    # The approved v1 HTML holds the structured Toolkit representation used by
+    # its screens. The source DOCX is still read and checked below.
+    code = """const fs=require('node:fs'),vm=require('node:vm');
+const html=fs.readFileSync(process.argv[1],'utf8');
+const start=html.indexOf('const TK = {'),end=html.indexOf('/* ---------- Register column configuration',start);
+if(start<0||end<0) throw Error('Toolkit state missing from approved portal HTML');
+const expression=html.slice(start+'const TK = '.length,end).trim().replace(/;$/,'');
+const value=vm.runInNewContext('('+expression+')',Object.create(null),{timeout:1000});
+console.log(JSON.stringify(value));"""
+    result = subprocess.run(["node", "-e", code, str(path)], check=True, capture_output=True, text=True)
+    toolkit = json.loads(result.stdout)
+    required = {"rules", "authority", "stages", "agenda", "nsq", "interviews", "instruments", "rhythm", "checklist"}
+    if not required <= toolkit.keys():
+        raise SystemExit("Approved portal HTML lacks required Toolkit sections")
+    return toolkit
+
+
 def main():
     parser = argparse.ArgumentParser()
-    for name in ("plan", "register", "toolkit", "output"):
+    for name in ("plan", "register", "toolkit", "portal", "output"):
         parser.add_argument(name, type=Path)
     args = parser.parse_args()
-    sheets = []
-    for source, path in (("plan", args.plan), ("register", args.register)):
+    plan_titles = ("Work Breakdown", "Stage Gates", "Milestones", "Risks & Issues")
+    reg_titles = ("Client Findings", "Information Requests", "New Deep Dive Evidence", "Service Processes",
+                  "Commercial Baseline", "Findings", "Opportunities", "Decisions", "GDXP Traceability", "Validation Log")
+    found = {}
+    for path in (args.plan, args.register):
         for title, columns, rows in xlsx_sheets(path):
-            sheets.append((source, title, columns, rows))
-    sheets.append(("toolkit", "Delivery Toolkit", ["Paragraph", "Text"], list(toolkit_rows(args.toolkit))))
+            if title in plan_titles + reg_titles:
+                if title in found:
+                    raise SystemExit(f"Duplicate source sheet: {title}")
+                found[title] = (columns, rows)
+    if set(found) != set(plan_titles + reg_titles):
+        raise SystemExit(f"Missing source sheets: {set(plan_titles + reg_titles) - set(found)}")
+    sheets = [("plan" if title in plan_titles else "register", title, *found[title])
+              for title in plan_titles + reg_titles]
+    if len(list(toolkit_rows(args.toolkit))) < 10:
+        raise SystemExit("Delivery Toolkit document is empty or incomplete")
+    toolkit = portal_toolkit(args.portal)
+    sheets.append(("toolkit", "Delivery Toolkit", ["Toolkit JSON"], [[json.dumps(toolkit)]]))
+    sheets.append(("portal", "Portal Settings", ["Setting"], [["settings"]]))
     counts = {(source, title): len(rows) for source, title, _, rows in sheets}
     expected = {("plan", "Work Breakdown"): 41, ("plan", "Stage Gates"): 6,
                 ("register", "Client Findings"): 140, ("register", "Information Requests"): 31}
@@ -87,9 +120,12 @@ def main():
     lines = ["begin;"]
     for position, (source, title, columns, rows) in enumerate(sheets):
         sheet_id = f"{source}:{title}"
-        locked = list(range(7)) if (source, title) == ("register", "Client Findings") else (
-            list(range(5)) if (source, title) == ("register", "Information Requests") else (
-            list(range(len(columns))) if source == "toolkit" else []))
+        editable = {"Work Breakdown": {9, 11, 12, 13}, "Stage Gates": {4, 5, 6},
+                    "Milestones": {4, 5}, "Risks & Issues": {1, 2, 3, 4, 5, 6}}
+        locked = list(range(5)) if title == "Client Findings" else (
+            list(range(3)) if title == "Information Requests" else (
+            [i for i in range(len(columns)) if i not in editable[title]] if title in editable else (
+                list(range(len(columns))) if source in ("toolkit", "portal") else [0])))
         lines.append("insert into indago.sheets (id,title,source_name,columns,locked_columns,position) values ("
                      + ",".join((sql(sheet_id), sql(title), sql(source), sql(json.dumps(columns)),
                                sql(json.dumps(locked)), str(position))) + ");")

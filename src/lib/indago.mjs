@@ -17,6 +17,12 @@ export function makeIndagoApi(supabase) {
     async history(recordId) {
       return db.from('history').select('*').eq('record_id', recordId).order('id', { ascending: false }).then(unwrap);
     },
+    async recentHistory() {
+      return db.from('history').select('*').order('id', { ascending: false }).limit(50).then(unwrap);
+    },
+    async add(record) {
+      return db.from('records').insert(record).select('*').single().then(unwrap);
+    },
     async save(record, edits) {
       const { data, error } = await db.from('records').update({ edits })
         .eq('id', record.id).eq('version', record.version).select('*').maybeSingle();
