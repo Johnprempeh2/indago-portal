@@ -72,4 +72,21 @@ do $$ begin
   if (select version from indago.records where id='finding-1') <> 2 then raise exception 'version missing'; end if;
 end $$;
 reset role;
+\ir ../rollback/0042_indago_editor_rows_down.sql
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000001';
+do $$ begin
+  begin
+    update indago.records set edits = '{"kickoff":"2026-10-21"}' where id = 'settings';
+    raise exception '0042 rollback left overlay edits enabled';
+  exception when check_violation then null;
+  end;
+end $$;
+update indago.records set edits = '{"1":"Reviewed"}' where id = 'finding-1';
+do $$ begin
+  if (select version from indago.records where id='finding-1') <> 3 then
+    raise exception '0041 numeric edit guard was not restored';
+  end if;
+end $$;
+reset role;
 select 'Indago RLS, locked fields and audit passed' as result;
