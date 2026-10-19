@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.*
+*.local
+*import*.sql
+*.xlsx
+*.docx
+*portal-v1*.html
