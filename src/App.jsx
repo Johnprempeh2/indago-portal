@@ -42,7 +42,7 @@ function Workspace() {
   const [error, setError] = useState('');
   const [history, setHistory] = useState(null);
   const [lastSync, setLastSync] = useState(null);
-  const store = useMemo(() => makeRecordStore(api, data => { setSnapshot(data); setLastSync(new Date()); setError(''); }, setError), [api]);
+  const store = useMemo(() => makeRecordStore(api, data => { setSnapshot(data); setLastSync(new Date()); }, setError), [api]);
   useEffect(() => {
     let active = true;
     api.membership().then(member => { if (active) setRole(member?.role ?? null); }).catch(() => { if (active) setError('Access could not be checked. Reload and try again.'); });
