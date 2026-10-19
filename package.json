@@ -15,6 +15,8 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "esbuild": "^0.25.12",
+    "happy-dom": "^20.14.6",
     "vite": "^6.0.0"
   }
 }

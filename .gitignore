@@ -7,3 +7,4 @@ dist/
 *.xlsx
 *.docx
 *portal-v1*.html
+.vite/
