@@ -15,10 +15,10 @@ export function makeIndagoApi(supabase) {
       return { sheets, records };
     },
     async history(recordId) {
-      return db.from('history').select('*').eq('record_id', recordId).order('id', { ascending: false }).then(unwrap);
+      return db.rpc('recent_history', { p_record_id: recordId }).then(unwrap);
     },
     async recentHistory() {
-      return db.from('history').select('*').order('id', { ascending: false }).limit(50).then(unwrap);
+      return db.rpc('recent_history').then(unwrap);
     },
     async add(record) {
       return db.from('records').insert(record).select('*').single().then(unwrap);

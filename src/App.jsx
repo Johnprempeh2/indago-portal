@@ -77,6 +77,6 @@ function Workspace() {
     <IndagoApp store={{ state, canEdit: role === 'editor', actions: store.actions }}
       status={<span role="status" className="sync-status">{lastSync ? `Updated ${lastSync.toLocaleTimeString('en-GB')}` : 'Connecting…'}</span>}
       headerSlot={<><button type="button" className="btn small" onClick={showHistory}>History</button><button type="button" className="btn small" onClick={() => supabase.auth.signOut()}>Sign out</button></>} />
-    {history && <aside className="history-panel" aria-label="Change history"><button onClick={() => setHistory(null)}>Close history</button><h2>Recent changes</h2><ol>{history.map(item => <li key={item.id}>{changeLabel(item)}, {new Date(item.changed_at).toLocaleString('en-GB')}, user {item.actor_id}</li>)}</ol></aside>}
+    {history && <aside className="history-panel" aria-label="Change history"><button onClick={() => setHistory(null)}>Close history</button><h2>Recent changes</h2><ol>{history.map(item => <li key={item.id}>{changeLabel(item)}, {new Date(item.changed_at).toLocaleString('en-GB')}, {item.actor_email || 'Unknown user'}</li>)}</ol></aside>}
   </>;
 }
