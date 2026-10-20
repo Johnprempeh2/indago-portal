@@ -4,14 +4,21 @@ INSERT INTO indago.members(email,user_id,role) VALUES
  ('editor@example.test','editor-1','editor'),
  ('viewer@example.test','viewer-1','viewer');
 INSERT INTO indago.sheets VALUES
- ('findings','Client Findings','test','["ID","Text","Status"]','[0,1]',1),
- ('requests','Information Requests','test','["ID","Text","Status"]','[0,1]',2),
+ ('findings','Client Findings','test','["ID","Area","Class","Original","Source","Status"]','[0,1,2,3,4]',1),
+ ('requests','Information Requests','test','["ID","Request","Source","Status"]','[0,1,2]',2),
  ('risks','Risks & Issues','test','["ID","Risk"]','[0]',3),
  ('settings','Portal Settings','test','["Setting"]','[0]',4);
 INSERT INTO indago.records(id,sheet_id,position,source_values) VALUES
- ('finding-1','findings',1,'["F-1","Original","Open"]'),
- ('request-1','requests',1,'["Q-1","Original","Open"]'),
+ ('finding-1','findings',1,'["F-1","Area","Class","Original","Source","Open"]'),
+ ('request-1','requests',1,'["Q-1","Request","Source","Open"]'),
  ('settings','settings',1,'["settings"]');
+DO $$ BEGIN
+  BEGIN
+    UPDATE indago.sheets SET locked_columns='[0]' WHERE id='findings';
+    RAISE EXCEPTION 'missing client locks accepted';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+END $$;
 DO $$ BEGIN
   BEGIN
     INSERT INTO indago.sheets VALUES ('bad','Bad','test','["ID"]','["0"]',5);
@@ -22,7 +29,7 @@ END $$;
 DO $$ BEGIN
   PERFORM set_config('indago.user_id','editor-1',true);
   BEGIN
-    UPDATE indago.records SET source_values='["F-1","Changed","Open"]' WHERE id='finding-1';
+    UPDATE indago.records SET source_values='["F-1","Area","Class","Changed","Source","Open"]' WHERE id='finding-1';
     RAISE EXCEPTION 'source row changed';
   EXCEPTION WHEN check_violation THEN NULL;
   END;
@@ -42,7 +49,7 @@ DO $$ BEGIN
     RAISE EXCEPTION 'viewer source missing';
   END IF;
   BEGIN
-    UPDATE indago.records SET edits='{"2":"Done"}' WHERE id='finding-1';
+    UPDATE indago.records SET edits='{"5":"Done"}' WHERE id='finding-1';
     IF FOUND THEN RAISE EXCEPTION 'viewer wrote'; END IF;
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
@@ -56,7 +63,7 @@ END $$;
 SELECT set_config('indago.user_id','editor-1',true);
 DO $$ BEGIN
   BEGIN
-    UPDATE indago.records SET edits='{"1":"Changed"}' WHERE id='finding-1';
+    UPDATE indago.records SET edits='{"3":"Changed"}' WHERE id='finding-1';
     RAISE EXCEPTION 'locked finding text changed';
   EXCEPTION WHEN check_violation THEN NULL;
   END;
@@ -76,7 +83,7 @@ DO $$ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
 END $$;
-UPDATE indago.records SET edits='{"2":"Done"}' WHERE id='finding-1';
+UPDATE indago.records SET edits='{"5":"Done"}' WHERE id='finding-1';
 UPDATE indago.records SET edits='{"kickoff":"2026-10-20"}' WHERE id='settings';
 INSERT INTO indago.records(id,sheet_id,position,source_values)
   VALUES('risk-1','risks',1,'["R-1","Example risk"]');
