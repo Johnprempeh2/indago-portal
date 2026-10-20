@@ -4,18 +4,23 @@ INSERT INTO indago.members(email,user_id,role) VALUES
  ('editor@example.test','editor-1','editor'),
  ('viewer@example.test','viewer-1','viewer');
 INSERT INTO indago.sheets VALUES
- ('findings','Client Findings','test','["ID","Area","Class","Original","Source","Status"]','[0,1,2,3,4]',1),
- ('requests','Information Requests','test','["ID","Request","Source","Status"]','[0,1,2]',2),
+ ('register:Client Findings','Client Findings ','test','["ID","Area","Class","Original","Source","Status"]','[0,1,2,3,4]',1),
+ ('register:Information Requests','Information Requests ','test','["ID","Request","Source","Status"]','[0,1,2]',2),
  ('risks','Risks & Issues','test','["ID","Risk"]','[0]',3),
  ('settings','Portal Settings','test','["Setting"]','[0]',4);
 INSERT INTO indago.records(id,sheet_id,position,source_values) VALUES
- ('finding-1','findings',1,'["F-1","Area","Class","Original","Source","Open"]'),
- ('request-1','requests',1,'["Q-1","Request","Source","Open"]'),
+ ('finding-1','register:Client Findings',1,'["F-1","Area","Class","Original","Source","Open"]'),
+ ('request-1','register:Information Requests',1,'["Q-1","Request","Source","Open"]'),
  ('settings','settings',1,'["settings"]');
 DO $$ BEGIN
   BEGIN
-    UPDATE indago.sheets SET locked_columns='[0]' WHERE id='findings';
+    UPDATE indago.sheets SET locked_columns='[0]' WHERE id='register:Client Findings';
     RAISE EXCEPTION 'missing client locks accepted';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+  BEGIN
+    UPDATE indago.sheets SET locked_columns='[0]' WHERE id='register:Information Requests';
+    RAISE EXCEPTION 'missing request locks accepted';
   EXCEPTION WHEN check_violation THEN NULL;
   END;
 END $$;
