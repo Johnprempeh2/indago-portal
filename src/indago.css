@@ -1,5 +1,5 @@
 /* Indago portal. Ported from the v1 portal (GRE-1681) and scoped under .indago
-   so it can move into the website client portal later without clashing.
+   to keep its styles contained within this app.
    Tokens follow the greatstone-brand skill (same values as the website's site.css). */
 
 .indago {

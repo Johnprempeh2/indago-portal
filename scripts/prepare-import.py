@@ -1,7 +1,7 @@
 """Build a private SQL data load from the GRE-1681 source attachments.
 
 The output contains client text. Keep it outside Git and apply only after the
-0041 migration, a backup check and Flint review. Python standard library only.
+0001 migration, a backup check and Flint review. Python standard library only.
 """
 import argparse
 import json

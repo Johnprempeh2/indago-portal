@@ -1,4 +1,4 @@
--- Editor-created project rows and portal controls. Run after 0041 and before import.
+-- Editor-created project rows and portal controls. Run after 0001 and before import.
 -- Reviewed source rows remain immutable; only overlay edits change after import.
 create policy editors_insert_project_rows on indago.records for insert to authenticated
   with check (

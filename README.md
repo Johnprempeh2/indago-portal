@@ -1,6 +1,6 @@
 # Indago portal
 
-Private stand-alone React 18 and Vite app for the Indago project (GRE-1683). It uses the Greatstone website's Supabase project and email-link sign-in. The screens and data layer are kept in `src/` so the later website client portal merge is a copy of the module, not a new build.
+Private stand-alone React 18 and Vite app for the Indago project (GRE-1683). It uses its own Supabase project, Auth users and email-link sign-in. It is a separate service-delivery app.
 
 ## Local use
 
@@ -16,9 +16,9 @@ The app uses `/portal/indago`; `/indago` is a short redirect. `netlify.toml` set
 
 ## Database and source import
 
-Target project: `melnjvwmayjukpyngolv`. Check that this project has the agreed daily backup coverage **before** applying a migration or importing client data. Use a local or test project for checks. Production changes need Flint's schema review and the owner's release action.
+Target project: `ydribsrasdwahqtxacwz`. Do not apply these migrations to the website database. This project is on the Free plan. GRE-1697 owns the backup decision, production migration and import; take a manual database dump or obtain John's decision before either live write. Use a local or test project for checks. Flint must review the changed schema and RLS first.
 
-The numbered migrations are `supabase/migrations/0041_indago_schema.sql` and `supabase/migrations/0042_indago_editor_rows.sql` and `supabase/migrations/0043_indago_history_actor.sql`. Apply them in that order, then run the private source import. `0041` adds only the `indago` schema, four tables, two membership helpers and an audit trigger. `0042` permits invited Editors to add risks and derived register rows, and stores the portal controls as audited overlay edits. `0043` gives invited users the actor email for audited history through a restricted function; its rollback is `supabase/rollback/0043_indago_history_actor_down.sql` and leaves audit rows intact. The `0042` rollback is `supabase/rollback/0042_indago_editor_rows_down.sql`; it restores the 0041 update guard without removing existing data, although editor-created rows remain in place. The `0041` rollback drops the whole schema. Export real data and confirm a restore point before rolling back `0041`. When this code is merged into the website later, carry all three migrations and rollback files across, preserving applied versions or renumbering only if the website has already used those numbers.
+The migrations are `supabase/migrations/0001_indago_schema.sql`, `0002_indago_editor_rows.sql` and `0003_indago_history_actor.sql`, applied in that order to a fresh Supabase project. They depend only on that project's standard `auth.users` and `auth.uid()`. `0001` creates the `indago` schema, four tables, two membership helpers and an audit trigger. `0002` permits invited Editors to add risks and derived register rows, and stores portal controls as audited edits. `0003` gives invited users the actor email for audited history through a restricted function. Matching files in `supabase/rollback/` reverse each step. The `0002` rollback leaves existing editor-created rows in place; the `0001` rollback drops the whole schema. Export real data and confirm a restore point before rolling back `0001`.
 
 The three GRE-1681 source instruments and approved v1 HTML stay outside Git. `scripts/prepare-import.py` reads both workbooks by sheet name, validates the Delivery Toolkit document, and takes the v1 HTML's structured Toolkit state for the seven screens. It validates 41 work packages, 6 gates, 140 findings and 31 requests, then writes a private SQL import file. The attachments' workbook labels are reversed, so sheet names determine their roles. Example: `python3 scripts/prepare-import.py plan.xlsx register.xlsx toolkit.docx portal.html import.sql`. The output contains client text. Keep it in a protected temporary location, apply it through an authorised database connection, and delete it after verification. The first five columns of Client Findings and first three of Information Requests are locked in the database. Editors can save overlay values only for the remaining columns; Viewers can read but cannot write. An administrator provisions named people in `indago.members` after their Supabase auth users exist. No browser can invite itself.
 
@@ -28,4 +28,4 @@ The browser reloads shared records every 3 seconds. Saves use the record version
 
 ## Publish checklist
 
-After the migration, data import and reviews: configure a private Netlify site for this repository, set only the two `VITE_` public values, allow its auth callback in Supabase, test as two invited users, then set `indago.greatstoneint.com` DNS. John owns DNS and account settings. Publishing the private address is separate from merging this module into the public website client portal.
+GRE-1697 owns the live steps after review: set the two `VITE_` public values to the Indago project, allow the private site's auth callback, test as two invited users, then set `indago.greatstoneint.com` DNS. The private site must retain sign-in and `noindex`.

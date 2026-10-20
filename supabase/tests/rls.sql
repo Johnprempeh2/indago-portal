@@ -6,9 +6,9 @@ create function auth.uid() returns uuid language sql stable as $$
 $$;
 do $$ begin create role authenticated nologin; exception when duplicate_object then null; end $$;
 do $$ begin create role anon nologin; exception when duplicate_object then null; end $$;
-\ir ../migrations/0041_indago_schema.sql
-\ir ../migrations/0042_indago_editor_rows.sql
-\ir ../migrations/0043_indago_history_actor.sql
+\ir ../migrations/0001_indago_schema.sql
+\ir ../migrations/0002_indago_editor_rows.sql
+\ir ../migrations/0003_indago_history_actor.sql
 
 insert into auth.users values
  ('00000000-0000-0000-0000-000000000001', 'editor@example.test'),
@@ -87,21 +87,21 @@ do $$ begin
   end if;
 end $$;
 reset role;
-\ir ../rollback/0043_indago_history_actor_down.sql
-\ir ../rollback/0042_indago_editor_rows_down.sql
+\ir ../rollback/0003_indago_history_actor_down.sql
+\ir ../rollback/0002_indago_editor_rows_down.sql
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000001';
 do $$ begin
   begin
     update indago.records set edits = '{"kickoff":"2026-10-21"}' where id = 'settings';
-    raise exception '0042 rollback left overlay edits enabled';
+    raise exception '0002 rollback left overlay edits enabled';
   exception when check_violation then null;
   end;
 end $$;
 update indago.records set edits = '{"1":"Reviewed"}' where id = 'finding-1';
 do $$ begin
   if (select version from indago.records where id='finding-1') <> 3 then
-    raise exception '0041 numeric edit guard was not restored';
+    raise exception '0001 numeric edit guard was not restored';
   end if;
 end $$;
 reset role;

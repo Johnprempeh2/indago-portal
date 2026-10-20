@@ -1,12 +1,12 @@
--- Run before rolling back 0041. Existing editor-created rows remain in place;
--- export them before rolling back 0041, which drops the whole schema.
+-- Run before rolling back 0001. Existing editor-created rows remain in place;
+-- export them before rolling back 0001, which drops the whole schema.
 drop trigger if exists audit_new_record on indago.records;
 drop trigger if exists stamp_new_record on indago.records;
 drop function if exists indago.audit_new_record();
 drop function if exists indago.stamp_new_record();
 drop policy if exists editors_insert_project_rows on indago.records;
 revoke insert (id, sheet_id, position, source_values) on indago.records from authenticated;
--- Restore the 0041 guard in place. Reapplying 0041 would recreate the schema.
+-- Restore the 0001 guard in place. Reapplying 0001 would recreate the schema.
 create or replace function indago.guard_record_update() returns trigger language plpgsql security definer
   set search_path = '' as $$
 declare

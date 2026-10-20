@@ -28,7 +28,7 @@ revoke all on function indago.can_edit() from public;
 grant execute on function indago.is_member(), indago.can_edit() to authenticated;
 
 -- One row per source sheet. The column names and their lock boundary are data,
--- so the eventual website merge can keep the same reading code.
+-- so imports and screen mapping use one stable contract.
 create table indago.sheets (
   id text primary key,
   title text not null,
