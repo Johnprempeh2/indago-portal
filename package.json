@@ -7,12 +7,16 @@
     "dev": "vite",
     "build": "vite build",
     "test": "node --test",
-    "preflight": "npm test && npm run build"
+    "preflight": "npm test && npm run build && npm run check:dist",
+    "check:dist": "node scripts/check-dist.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.108.2",
+    "@netlify/database": "^2.0.1",
+    "better-auth": "^1.7.12",
+    "pg": "^8.23.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "resend": "^6.34.1"
   },
   "devDependencies": {
     "esbuild": "^0.25.12",

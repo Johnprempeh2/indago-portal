@@ -9,8 +9,7 @@ test('display and CSV preserve locked source while showing editor changes', () =
 });
 
 test('save reports a version conflict without hiding it', async () => {
-  const query = { eq() { return this; }, select() { return this; }, async maybeSingle() { return { data: null, error: null }; } };
-  const api = makeIndagoApi({ schema: () => ({ from: () => ({ update: () => query }) }) });
+  const api = makeIndagoApi(async () => ({ ok: false, async json() { return { error: 'This record changed in another browser. Reload before saving.' }; } }));
   await assert.rejects(api.save({ id: 'r1', version: 1 }, { 1: 'Done' }), /changed in another browser/);
 });
 
@@ -19,13 +18,13 @@ test('CSV export treats spreadsheet formulas as text', () => {
 });
 
 
-test('recent history requests actor labels from the private RPC', async () => {
+test('recent history requests actor labels from the private function', async () => {
   const expected = [{ id: 1, actor_email: 'editor@example.test' }];
   const calls = [];
-  const api = makeIndagoApi({ schema(name) {
-    assert.equal(name, 'indago');
-    return { rpc(name) { calls.push(name); return Promise.resolve({ data: expected, error: null }); } };
-  } });
+  const api = makeIndagoApi(async (path, options) => {
+    calls.push([path, options.credentials]);
+    return { ok: true, async json() { return expected; } };
+  });
   assert.deepEqual(await api.recentHistory(), expected);
-  assert.deepEqual(calls, ['recent_history']);
+  assert.deepEqual(calls, [['/api/indago/history', 'same-origin']]);
 });

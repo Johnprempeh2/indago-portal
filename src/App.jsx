@@ -1,19 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { supabase } from './lib/supabase.mjs';
+import { authClient } from './lib/auth-client.mjs';
 import { makeIndagoApi } from './lib/indago.mjs';
 import { makeRecordStore, recordsToState } from './data/record-store.mjs';
 import IndagoApp from './IndagoApp.jsx';
 
 export default function App() {
-  const [session, setSession] = useState(undefined);
-  useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
-    return () => data.subscription.unsubscribe();
-  }, []);
-  if (!supabase) return <main className="state"><h1>Portal setup is incomplete</h1><p>Set the Supabase public URL and publishable key for this site.</p></main>;
-  if (session === undefined) return <main className="state" aria-busy="true">Checking access…</main>;
+  const { data: session, isPending } = authClient.useSession();
+  if (isPending) return <main className="state" aria-busy="true">Checking access…</main>;
   if (!session) return <SignIn />;
   return <Workspace key={session.user.id} />;
 }
@@ -24,7 +17,7 @@ function SignIn() {
   async function submit(event) {
     event.preventDefault();
     setMessage('Sending your sign-in link…');
-    const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: `${location.origin}/portal/indago` } });
+    const { error } = await authClient.signIn.magicLink({ email: email.trim(), callbackURL: '/portal/indago' });
     setMessage(error ? 'We could not send the link. Try again or contact your portal administrator.' : 'Check your email for the sign-in link.');
   }
   return <main className="state">
@@ -36,7 +29,7 @@ function SignIn() {
 }
 
 function Workspace() {
-  const api = useMemo(() => makeIndagoApi(supabase), []);
+  const api = useMemo(() => makeIndagoApi(), []);
   const [role, setRole] = useState(undefined);
   const [snapshot, setSnapshot] = useState(null);
   const [error, setError] = useState('');
@@ -51,7 +44,9 @@ function Workspace() {
   useEffect(() => {
     if (!role) return;
     store.refresh().catch(e => setError(e.message || 'Data could not be loaded. Reload and try again.'));
-    const timer = setInterval(() => store.refresh().catch(e => setError(e.message || 'Live update failed. Reload and try again.')), 3000);
+    const timer = setInterval(() => {
+      if (!document.hidden) store.refresh().catch(e => setError(e.message || 'Live update failed. Reload and try again.'));
+    }, 5000);
     return () => clearInterval(timer);
   }, [role, store]);
   const showHistory = async () => {
@@ -60,7 +55,7 @@ function Workspace() {
   };
   if (error && role === undefined) return <main className="state" role="alert">{error}</main>;
   if (role === undefined) return <main className="state" aria-busy="true">Checking invitation…</main>;
-  if (!role) return <main className="state"><h1>No Indago invitation</h1><p>This account is signed in, but is not invited to this workspace.</p><button onClick={() => supabase.auth.signOut()}>Sign out</button></main>;
+  if (!role) return <main className="state"><h1>No Indago invitation</h1><p>This account is signed in, but is not invited to this workspace.</p><button onClick={() => authClient.signOut()}>Sign out</button></main>;
   if (!snapshot) return <main className="state" aria-busy="true">Loading shared records…</main>;
   const state = recordsToState(snapshot);
   if (!state.toolkit) return <main className="state" role="alert">The approved toolkit data is missing. Ask the portal administrator to complete the private source import.</main>;
@@ -76,7 +71,7 @@ function Workspace() {
     {error && <p className="save-alert" role="alert">{error} <button onClick={() => setError('')}>Dismiss</button></p>}
     <IndagoApp store={{ state, canEdit: role === 'editor', actions: store.actions }}
       status={<span role="status" className="sync-status">{lastSync ? `Updated ${lastSync.toLocaleTimeString('en-GB')}` : 'Connecting…'}</span>}
-      headerSlot={<><button type="button" className="btn small" onClick={showHistory}>History</button><button type="button" className="btn small" onClick={() => supabase.auth.signOut()}>Sign out</button></>} />
+      headerSlot={<><button type="button" className="btn small" onClick={showHistory}>History</button><button type="button" className="btn small" onClick={() => authClient.signOut()}>Sign out</button></>} />
     {history && <aside className="history-panel" aria-label="Change history"><button onClick={() => setHistory(null)}>Close history</button><h2>Recent changes</h2><ol>{history.map(item => <li key={item.id}>{changeLabel(item)}, {new Date(item.changed_at).toLocaleString('en-GB')}, {item.actor_email || 'Unknown user'}</li>)}</ol></aside>}
   </>;
 }

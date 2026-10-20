@@ -1,35 +1,18 @@
-export function makeIndagoApi(supabase) {
-  const db = supabase.schema('indago');
-  const unwrap = ({ data, error }) => { if (error) throw error; return data; };
+export function makeIndagoApi(fetcher = fetch) {
+  const call = async (path, body) => {
+    const response = await fetcher(`/api/indago/${path}`, body === undefined
+      ? { credentials: 'same-origin' }
+      : { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Portal request failed.');
+    return result;
+  };
   return {
-    async membership() {
-      const { data, error } = await db.from('members').select('role').maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    async snapshot() {
-      const [sheets, records] = await Promise.all([
-        db.from('sheets').select('*').order('position').then(unwrap),
-        db.from('records').select('*').order('sheet_id').order('position').then(unwrap),
-      ]);
-      return { sheets, records };
-    },
-    async history(recordId) {
-      return db.rpc('recent_history', { p_record_id: recordId }).then(unwrap);
-    },
-    async recentHistory() {
-      return db.rpc('recent_history').then(unwrap);
-    },
-    async add(record) {
-      return db.from('records').insert(record).select('*').single().then(unwrap);
-    },
-    async save(record, edits) {
-      const { data, error } = await db.from('records').update({ edits })
-        .eq('id', record.id).eq('version', record.version).select('*').maybeSingle();
-      if (error) throw error;
-      if (!data) throw new Error('This record changed in another browser. Reload it before saving.');
-      return data;
-    },
+    async membership() { return call('membership'); },
+    async snapshot() { return call('snapshot'); },
+    async recentHistory() { return call('history'); },
+    async add(record) { return call('add', record); },
+    async save(record, edits) { return call('save', { id: record.id, version: record.version, edits }); },
   };
 }
 
