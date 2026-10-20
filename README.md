@@ -27,3 +27,11 @@ python3 scripts/prepare-import.py plan.xlsx register.xlsx toolkit.docx portal.ht
 The output contains real client material. Keep it outside the repository and apply it only after Flint's security review and the production backup decision. The first five Client Findings columns and first three Information Requests columns are locked by Postgres. Rollback runs `0004_stable_client_locks/rollback.sql`, then `0003_required_client_locks/rollback.sql`, then `0002_indago/rollback.sql`, then `0001_auth/rollback.sql`, after exporting data and confirming a restore point. Production changes use a new forward migration; never edit a migration that has already run.
 
 The browser polls every five seconds while visible. Saves use record versions to detect another editor's change. CSV export escapes spreadsheet formulas. The database is the master copy. A two-user live check and private address setup follow the security review. Do not add DNS or load real data from this branch.
+
+## Preview sign-in
+
+The Editor and Viewer password route is off by default. Flint must review its commit before anyone sets `INDAGO_TEST_LOGIN=1`. It works only at `https://greatstone-indago-portal.netlify.app`, with `INDAGO_TEST_LOGIN_HOST=greatstone-indago-portal.netlify.app`. Public sign-up and password reset remain closed. Normal invited email-link sign-in remains available.
+
+After review, set distinct 16-character or longer `INDAGO_TEST_EDITOR_PASSWORD` and `INDAGO_TEST_VIEWER_PASSWORD` as Netlify secret environment values. Use `INDAGO_SEED_MODE=1 npm run seed:preview-users` from an authorised shell with the Netlify Database connection and Better Auth secret to create two `.test` accounts and their Editor/Viewer memberships. `INDAGO_SEED_MODE` belongs only on that shell command, never in Netlify site settings. The seed prints no credentials. Give Summit the Netlify secret names through GRE-1684, not the values in an issue comment.
+
+Before real data is imported, turn `INDAGO_TEST_LOGIN` off, revoke the two preview sessions, and delete both `.test` accounts and memberships. This prevents seed users from seeing real records.

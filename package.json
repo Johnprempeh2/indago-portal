@@ -8,7 +8,8 @@
     "build": "vite build",
     "test": "node --test",
     "preflight": "npm test && npm run build && npm run check:dist",
-    "check:dist": "node scripts/check-dist.mjs"
+    "check:dist": "node scripts/check-dist.mjs",
+    "seed:preview-users": "node scripts/seed-preview-users.mjs"
   },
   "dependencies": {
     "@netlify/database": "^2.0.1",
