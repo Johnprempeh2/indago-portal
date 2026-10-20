@@ -5,7 +5,7 @@ if (process.env.INDAGO_TEST_LOGIN !== '1' ||
     process.env.INDAGO_SEED_MODE !== '1' ||
     !process.env.BETTER_AUTH_SECRET ||
     !process.env.BETTER_AUTH_URL?.startsWith('https://greatstone-indago-portal.netlify.app') ||
-    !process.env.NETLIFY_DATABASE_URL) {
+    !(process.env.NETLIFY_DB_URL || process.env.DATABASE_URL)) {
   throw new Error('Preview seed configuration is incomplete');
 }
 

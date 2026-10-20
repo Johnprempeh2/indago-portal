@@ -9,7 +9,8 @@
     "test": "node --test",
     "preflight": "npm test && npm run build && npm run check:dist",
     "check:dist": "node scripts/check-dist.mjs",
-    "seed:preview-users": "node scripts/seed-preview-users.mjs"
+    "seed:preview-users": "node scripts/seed-preview-users.mjs",
+    "remove:preview-users": "node scripts/remove-preview-users.mjs"
   },
   "dependencies": {
     "@netlify/database": "^2.0.1",
