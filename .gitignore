@@ -8,3 +8,6 @@ dist/
 *.docx
 *portal-v1*.html
 .vite/
+
+# Local Netlify folder
+.netlify
