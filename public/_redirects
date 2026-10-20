@@ -1,0 +1,6 @@
+/indago /portal/indago 302
+/demo /demo/ 301
+/demo/* /demo/index.html 200
+/portal/indago /index.html 200
+/portal/indago/* /index.html 200
+/* /index.html 200

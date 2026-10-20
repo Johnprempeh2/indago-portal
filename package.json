@@ -1,0 +1,28 @@
+{
+  "name": "indago-portal",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "node --test",
+    "preflight": "npm test && npm run build && npm run check:dist",
+    "check:dist": "node scripts/check-dist.mjs",
+    "seed:preview-users": "node scripts/seed-preview-users.mjs",
+    "remove:preview-users": "node scripts/remove-preview-users.mjs"
+  },
+  "dependencies": {
+    "@netlify/database": "^2.0.1",
+    "better-auth": "^1.7.12",
+    "pg": "^8.23.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "resend": "^6.34.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12",
+    "happy-dom": "^20.14.6",
+    "vite": "^6.0.0"
+  }
+}
