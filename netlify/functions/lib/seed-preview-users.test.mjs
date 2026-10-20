@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { handleSeedRequest } from './seed-preview-users.mjs';
+import { handleSeedRequest } from '../seed-preview-users.mjs';
 
 const url = 'https://greatstone-indago-portal.netlify.app/api/seed-preview-users';
 const env = {
