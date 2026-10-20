@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { handleSeedRequest } from './seed-preview-row.mjs';
-import { recordsToState } from '../../src/data/record-store.mjs';
+import { handleSeedRequest } from '../seed-preview-row.mjs';
+import { recordsToState } from '../../../src/data/record-store.mjs';
 
 const url = 'https://greatstone-indago-portal.netlify.app/api/seed-preview-row';
 const env = { INDAGO_ROW_SEED_MODE: '1', INDAGO_ROW_SEED_TOKEN: 'synthetic-test-token' };
