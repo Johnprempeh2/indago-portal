@@ -39,8 +39,8 @@ export const auth = betterAuth({
       const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
         from: process.env.RESEND_FROM,
         to: email,
-        subject: 'Your Indago sign-in link',
-        text: `Use this link to sign in to the Indago portal: ${url}`,
+        subject: 'Your Greatstone Indago sign-in link',
+        text: `Use this link to sign in to your Greatstone Indago portal: ${url}`,
       });
       if (error) throw new Error('Email delivery failed');
     },

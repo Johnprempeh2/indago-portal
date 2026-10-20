@@ -247,8 +247,13 @@
 
 .indago .dot-divider { height: 5px; margin: 34px auto; max-width: 300px; background: radial-gradient(circle, var(--gs-accent) 2.5px, transparent 3px) center / 11px 5px repeat-x; opacity: .6; }
 
-.indago footer { padding: 32px 0 48px; text-align: center; color: var(--gs-text-faint); font-size: 13px; border-top: 1px solid var(--gs-border-soft); margin-top: 40px; }
-.indago footer .gs-logo { max-width: 130px; margin: 0 auto 10px; opacity: .7; }
+.indago .greatstone-footer { margin-top: 40px; }
+.greatstone-footer { display: grid; justify-items: center; gap: .6rem; padding: 2rem 1rem 3rem; border-top: 1px solid #343b35; color: #c4c8c1; text-align: center; font-size: .85rem; }
+.greatstone-footer img { display: block; max-width: 10rem; height: auto; }
+.greatstone-footer p { margin: 0; }
+.greatstone-footer a { color: #c8ff00; text-underline-offset: .2em; }
+.greatstone-footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; }
+.greatstone-footer small { color: #9ca29b; }
 
 @media (max-width: 960px) {
   .indago .gov { grid-template-columns: 1fr; }

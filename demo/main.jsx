@@ -2,9 +2,9 @@
 // Add ?viewer to the address to see the read-only Viewer role.
 import React, { useMemo, useReducer } from 'react';
 import { createRoot } from 'react-dom/client';
-import IndagoApp from '../src/IndagoApp.jsx';
-import { demoState } from '../src/fixture/demo-state.mjs';
-import { reduce, bindActions } from '../src/model/local-store.mjs';
+import IndagoApp from '../src/indago/IndagoApp.jsx';
+import { demoState } from '../src/indago/fixture/demo-state.mjs';
+import { reduce, bindActions } from '../src/indago/model/local-store.mjs';
 
 function Demo() {
   const [state, dispatch] = useReducer((s, a) => reduce(s, a), undefined, demoState);

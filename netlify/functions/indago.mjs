@@ -1,6 +1,6 @@
 import { db } from './lib/db.mjs';
 import { auth } from './lib/auth.mjs';
-import { handlePortalRequest } from './lib/portal-api.mjs';
+import { handlePortalRequest } from './indago/portal-api.mjs';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
