@@ -11,7 +11,7 @@ export const auth = betterAuth({
   trustedOrigins: [process.env.BETTER_AUTH_URL].filter(Boolean),
   // Preview accounts are seeded in a separate process. Public sign-up stays closed.
   emailAndPassword: {
-    enabled: process.env.INDAGO_TEST_LOGIN === '1',
+    enabled: process.env.INDAGO_TEST_LOGIN === '1' || process.env.INDAGO_SEED_MODE === '1',
     disableSignUp: process.env.INDAGO_SEED_MODE !== '1',
   },
   databaseHooks: {
