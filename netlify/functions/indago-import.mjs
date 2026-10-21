@@ -72,17 +72,21 @@ export async function handleImportRequest(request, env = process.env, load = asy
 
   const db = await load();
   const client = await db.pool.connect();
+  let phase = 'begin';
   try {
     await client.query('BEGIN');
+    phase = 'remove-preview-users';
     for (const email of Object.values(previewUsers)) {
       await client.query('DELETE FROM indago.members WHERE email = $1', [email]);
       await client.query('DELETE FROM "user" WHERE email = $1', [email]);
     }
     for (const sheet of body.sheets) {
+      phase = 'insert-sheet';
       await client.query(`INSERT INTO indago.sheets
         (id, title, source_name, columns, locked_columns, position) VALUES ($1,$2,$3,$4,$5,$6)
         ON CONFLICT (id) DO NOTHING`, [sheet.id, sheet.title, sheet.source_name,
         JSON.stringify(sheet.columns), JSON.stringify(sheet.locked_columns), sheet.position]);
+      phase = 'read-sheet';
       const existingSheet = await client.query(`SELECT title, source_name, columns, locked_columns, position
         FROM indago.sheets WHERE id = $1`, [sheet.id]);
       const saved = existingSheet.rows[0];
@@ -91,9 +95,11 @@ export async function handleImportRequest(request, env = process.env, load = asy
           JSON.stringify(saved.locked_columns) !== JSON.stringify(sheet.locked_columns) ||
           saved.position !== sheet.position) throw new Error('sheet mismatch');
       for (const record of sheet.records) {
+        phase = 'insert-record';
         await client.query(`INSERT INTO indago.records (id, sheet_id, position, source_values)
           VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING`,
         [record.id, record.sheet_id, record.position, JSON.stringify(record.source_values)]);
+        phase = 'read-record';
         const existing = await client.query(`SELECT sheet_id, position, source_values
           FROM indago.records WHERE id = $1`, [record.id]);
         const row = existing.rows[0];
@@ -103,23 +109,28 @@ export async function handleImportRequest(request, env = process.env, load = asy
         }
       }
     }
+    phase = 'verify-counts';
     const counts = {};
     for (const [id, expected] of requiredCounts) {
       const result = await client.query('SELECT count(*)::integer AS count FROM indago.records WHERE sheet_id = $1', [id]);
       counts[id] = result.rows[0]?.count;
       if (counts[id] !== expected) throw new Error('count mismatch');
     }
+    phase = 'verify-locks';
     const locks = await client.query(`SELECT id, locked_columns FROM indago.sheets
       WHERE id IN ('register:Client Findings', 'register:Information Requests')`);
     if (locks.rows.length !== 2 || locks.rows.some(row => {
       const required = row.id === 'register:Client Findings' ? [0, 1, 2, 3, 4] : [0, 1, 2];
       return !required.every(index => row.locked_columns.includes(index));
     })) throw new Error('lock mismatch');
+    phase = 'commit';
     await client.query('COMMIT');
     return Response.json({ counts }, { headers: { 'Cache-Control': 'no-store' } });
-  } catch {
+  } catch (error) {
     await client.query('ROLLBACK');
-    return Response.json({ error: 'Import failed; no changes were committed.' }, { status: 500 });
+    const code = /^[A-Z0-9]{5}$/.test(error?.code ?? '') ? error.code : undefined;
+    return Response.json({ error: 'Import failed; no changes were committed.', phase, code },
+      { status: 500 });
   } finally {
     client.release();
   }
