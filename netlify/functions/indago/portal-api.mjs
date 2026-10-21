@@ -9,8 +9,8 @@ async function bodyOf(request) {
   return JSON.parse(text);
 }
 
-export async function handlePortalRequest(request, client, role, route) {
-    if (request.method === 'GET' && route === 'membership') return json({ role });
+export async function handlePortalRequest(request, client, role, route, openAccess = false) {
+    if (request.method === 'GET' && route === 'membership') return json({ role, openAccess });
     if (request.method === 'GET' && route === 'snapshot') {
       const sheets = await client.query('SELECT * FROM indago.sheets ORDER BY position');
       const records = await client.query('SELECT * FROM indago.records ORDER BY sheet_id, position');

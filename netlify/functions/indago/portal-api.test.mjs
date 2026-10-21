@@ -12,6 +12,14 @@ test('Viewer cannot call a write action', async () => {
   assert.equal(response.status, 403);
 });
 
+test('membership reports whether open access is active', async () => {
+  const client = { query() { throw Error('database should not be reached'); } };
+  const open = await handlePortalRequest(request('GET'), client, 'editor', 'membership', true);
+  const closed = await handlePortalRequest(request('GET'), client, 'editor', 'membership');
+  assert.deepEqual(await open.json(), { role: 'editor', openAccess: true });
+  assert.deepEqual(await closed.json(), { role: 'editor', openAccess: false });
+});
+
 test('save requires a version and writes only the edit overlay', async () => {
   const queries = [];
   const client = { async query(sql, values) { queries.push([sql, values]); return { rows: [{ id: 'r1', version: 2 }] }; } };
