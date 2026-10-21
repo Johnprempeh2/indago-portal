@@ -30,12 +30,6 @@ The output contains real client material. Keep it outside the repository and app
 
 The browser polls every five seconds while visible. Saves use record versions to detect another editor's change. CSV export escapes spreadsheet formulas. The database is the master copy. A two-user live check and private address setup follow the security review. Do not add DNS or load real data from this branch.
 
-## Temporary signed-in QA
-
-`/api/indago-qa-invite` is a one-time test function. It stays hidden unless `INDAGO_QA_INVITE_ENABLED=1`, the request is HTTPS on `indago.greatstoneint.com`, and the caller supplies the 32-character-or-longer `INDAGO_QA_INVITE_TOKEN` as a bearer secret. The `invite` action creates three fixed `indago-test.invalid` Better Auth users; only Editor and Viewer get memberships. The `links` action returns three single-use Better Auth links in a no-store response, without sending email. A signed-in third user must receive 403 from the portal. The `seed-risk` and `remove-risk` actions manage one labelled synthetic risk for cross-user edits.
-
-For Summit's check, Summit sets and retains the one-time bearer value through a Netlify Functions secret, then invokes `invite` and `links` directly. Never copy links, tokens or responses into comments or logs. After QA, run `remove-risk` and `remove-users`, remove the function from the repo and deploy, delete the two QA environment values, and check that the route returns 404. This temporary route and all three synthetic accounts must be gone before real data is loaded.
-
 ## Preview sign-in
 
 The Editor and Viewer password route is off by default. Flint must review its commit before anyone sets `INDAGO_TEST_LOGIN=1`. It works only at `https://greatstone-indago-portal.netlify.app`, with `INDAGO_TEST_LOGIN_HOST=greatstone-indago-portal.netlify.app`. Public sign-up and password reset remain closed. Normal invited email-link sign-in remains available.
