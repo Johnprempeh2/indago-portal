@@ -106,5 +106,31 @@ SELECT set_config('indago.user_id','outsider-1',true);
 DO $$ BEGIN
   IF (SELECT count(*) FROM indago.history) <> 0 THEN RAISE EXCEPTION 'outsider read history'; END IF;
 END $$;
+SELECT set_config('indago.user_id','open-access',true);
+SELECT set_config('indago.open_access','on',true);
+DO $$ BEGIN
+  IF (SELECT count(*) FROM indago.records) <> 4 THEN RAISE EXCEPTION 'open access cannot read'; END IF;
+  BEGIN
+    UPDATE indago.records SET edits='{"3":"Changed"}' WHERE id='finding-1';
+    RAISE EXCEPTION 'open access changed locked finding field';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+  BEGIN
+    UPDATE indago.records SET edits='{"0":"Changed"}' WHERE id='request-1';
+    RAISE EXCEPTION 'open access changed locked request field';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+END $$;
+UPDATE indago.records SET edits='{"5":"Open edit"}' WHERE id='finding-1';
+INSERT INTO indago.records(id,sheet_id,position,source_values)
+  VALUES('risk-open','risks',2,'["R-2","Open access risk"]');
+DO $$ BEGIN
+  IF (SELECT count(*) FROM indago.history WHERE actor_id='open-access'
+      AND actor_email='Open access') <> 2 THEN RAISE EXCEPTION 'open access audit actor missing'; END IF;
+END $$;
+SELECT set_config('indago.open_access','off',true);
+DO $$ BEGIN
+  IF (SELECT count(*) FROM indago.records) <> 0 THEN RAISE EXCEPTION 'open access stayed enabled'; END IF;
+END $$;
 ROLLBACK;
 SELECT 'Indago RLS, locks, audit and invitation checks passed' AS result;

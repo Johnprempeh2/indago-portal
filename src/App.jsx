@@ -7,6 +7,17 @@ import GreatstoneFooter from './indago/GreatstoneFooter.jsx';
 
 export default function App() {
   const { data: session, isPending } = authClient.useSession();
+  const [openAccess, setOpenAccess] = useState(null);
+  useEffect(() => {
+    let active = true;
+    makeIndagoApi().membership()
+      .then(member => { if (active) setOpenAccess(member.openAccess === true); })
+      .catch(error => { if (active) setOpenAccess([401, 403].includes(error.status) ? false : 'error'); });
+    return () => { active = false; };
+  }, []);
+  if (openAccess === 'error') return <main className="state" role="alert">Access could not be checked. Reload and try again.</main>;
+  if (openAccess === null) return <main className="state" aria-busy="true">Checking access…</main>;
+  if (openAccess) return <Workspace key="open-access" openAccess />;
   if (isPending) return <main className="state" aria-busy="true">Checking access…</main>;
   if (!session) return <SignIn />;
   return <Workspace key={session.user.id} />;
@@ -55,7 +66,7 @@ function SignIn() {
   </main><GreatstoneFooter /></>;
 }
 
-export function Workspace() {
+export function Workspace({ openAccess = false }) {
   const api = useMemo(() => makeIndagoApi(), []);
   const [role, setRole] = useState(undefined);
   const [snapshot, setSnapshot] = useState(null);
@@ -102,7 +113,7 @@ export function Workspace() {
     {error && <p className="save-alert" role="alert">{error} <button onClick={() => setError('')}>Dismiss</button></p>}
     <IndagoApp store={{ state, canEdit: role === 'editor', actions: store.actions }}
       status={<span role="status" className="sync-status">{lastSync ? `Updated ${lastSync.toLocaleTimeString('en-GB')}` : 'Connecting…'}</span>}
-      headerSlot={<><button type="button" className="btn small" onClick={showHistory}>History</button><button type="button" className="btn small" onClick={() => authClient.signOut()}>Sign out</button></>} />
+      headerSlot={<><button type="button" className="btn small" onClick={showHistory}>History</button>{!openAccess && <button type="button" className="btn small" onClick={() => authClient.signOut()}>Sign out</button>}</>} />
     {history && <aside className="history-panel" aria-label="Change history"><button onClick={() => setHistory(null)}>Close history</button><h2>Recent changes</h2><ol>{history.map(item => <li key={item.id}>{changeLabel(item)}, {new Date(item.changed_at).toLocaleString('en-GB')}, {item.actor_email || 'Unknown user'}</li>)}</ol></aside>}
   </>;
 }
