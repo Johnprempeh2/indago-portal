@@ -13,6 +13,16 @@ const requiredCounts = new Map([
   ['plan:Work Breakdown', 41], ['plan:Stage Gates', 6],
   ['register:Client Findings', 140], ['register:Information Requests', 31],
 ]);
+const previewSheets = [
+  ['qa:toolkit', 'Delivery Toolkit', 1],
+  ['qa:settings', 'Portal Settings', 2],
+  ['qa:risks', 'Risks & Issues', 3],
+];
+const previewRecords = [
+  ['qa:toolkit', 'qa:toolkit'],
+  ['qa:settings', 'qa:settings'],
+  ['qa:risk-1', 'qa:risks'],
+];
 
 function authorised(request, env) {
   const url = new URL(request.url);
@@ -79,6 +89,27 @@ export async function handleImportRequest(request, env = process.env, load = asy
     for (const email of Object.values(previewUsers)) {
       await client.query('DELETE FROM indago.members WHERE email = $1', [email]);
       await client.query('DELETE FROM "user" WHERE email = $1', [email]);
+    }
+    phase = 'remove-preview-fixture';
+    const previewSheetIds = previewSheets.map(([id]) => id);
+    const fixture = await client.query(`SELECT id, title, source_name, position FROM indago.sheets
+      WHERE id = ANY($1::text[]) FOR UPDATE`, [previewSheetIds]);
+    if (fixture.rows.length !== 0) {
+      if (fixture.rows.length !== previewSheets.length || previewSheets.some(([id, title, position]) =>
+        !fixture.rows.some(row => row.id === id && row.title === title &&
+          row.source_name === 'Synthetic QA fixture' && row.position === position))) {
+        throw new Error('unexpected preview sheets');
+      }
+      const fixtureRecords = await client.query(`SELECT id, sheet_id, position FROM indago.records
+        WHERE sheet_id = ANY($1::text[]) FOR UPDATE`, [previewSheetIds]);
+      if (fixtureRecords.rows.length !== previewRecords.length || previewRecords.some(([id, sheetId]) =>
+        !fixtureRecords.rows.some(row => row.id === id && row.sheet_id === sheetId && row.position === 1))) {
+        throw new Error('unexpected preview records');
+      }
+      const previewRecordIds = previewRecords.map(([id]) => id);
+      await client.query('DELETE FROM indago.history WHERE record_id = ANY($1::text[])', [previewRecordIds]);
+      await client.query('DELETE FROM indago.records WHERE id = ANY($1::text[])', [previewRecordIds]);
+      await client.query('DELETE FROM indago.sheets WHERE id = ANY($1::text[])', [previewSheetIds]);
     }
     for (const sheet of body.sheets) {
       phase = 'insert-sheet';
