@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
-const { withMember } = await import('./indago.mjs');
+const { withMember } = await import('../indago.mjs');
 
 test('switch off requires a session without opening the database', async () => {
   const pool = { connect() { throw Error('database should not be reached'); } };
