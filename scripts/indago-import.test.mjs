@@ -61,6 +61,9 @@ test('a count mismatch rolls back the preview removal and all imported rows', as
     connect: async () => client,
   } }));
   assert.equal(response.status, 500);
+  assert.deepEqual(await response.json(), {
+    error: 'Import failed; no changes were committed.', phase: 'verify-counts',
+  });
   assert.ok(calls.includes('BEGIN'));
   assert.ok(calls.includes('ROLLBACK'));
   assert.equal(calls.includes('COMMIT'), false);
@@ -97,4 +100,24 @@ test('valid import commits exact counts and locked client columns', async () => 
   assert.deepEqual((await response.json()).counts, counts);
   assert.ok(calls.includes('COMMIT'));
   assert.equal(calls.includes('ROLLBACK'), false);
+});
+
+
+test('database errors expose only a safe phase and SQLSTATE', async () => {
+  const client = {
+    release() {},
+    async query(sql) {
+      if (sql.includes('DELETE FROM indago.members')) {
+        throw Object.assign(new Error('sensitive database detail'), { code: '42501' });
+      }
+      return { rows: [] };
+    },
+  };
+  const response = await handleImportRequest(request({ sheets }), env, async () => ({ pool: {
+    connect: async () => client,
+  } }));
+  assert.equal(response.status, 500);
+  assert.deepEqual(await response.json(), {
+    error: 'Import failed; no changes were committed.', phase: 'remove-preview-users', code: '42501',
+  });
 });
