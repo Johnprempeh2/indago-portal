@@ -1,6 +1,8 @@
 import { timingSafeEqual } from 'node:crypto';
 
 const host = 'indago.greatstoneint.com';
+const qaRiskId = 'qa:cross-user-risk';
+const qaRiskLabel = 'Synthetic QA row; safe to edit';
 
 function allowed(request, env) {
   const url = new URL(request.url);
@@ -39,7 +41,7 @@ export async function handleQaInvite(request, env = process.env, load = async ()
   } catch {
     return Response.json({ error: 'Invalid request.' }, { status: 400 });
   }
-  if (!['invite', 'revoke-uninvited'].includes(action)) {
+  if (!['invite', 'revoke-uninvited', 'seed-risk', 'remove-risk'].includes(action)) {
     return Response.json({ error: 'Invalid request.' }, { status: 400 });
   }
 
@@ -47,26 +49,56 @@ export async function handleQaInvite(request, env = process.env, load = async ()
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
-    const existing = await client.query(
-      'SELECT email, role FROM indago.members WHERE email = ANY($1::text[]) FOR UPDATE',
-      [users.map(user => user.email)],
-    );
-    if (action === 'invite' && existing.rows.length) {
-      await client.query('ROLLBACK');
-      return Response.json({ error: 'Test invite already exists.' }, { status: 409 });
-    }
-    if (action === 'revoke-uninvited') {
-      const row = existing.rows.find(item => item.email === users[2].email);
-      if (!row || row.role !== 'viewer') {
+    if (action === 'seed-risk') {
+      const sheet = await client.query(
+        'SELECT id, columns FROM indago.sheets WHERE id = $1 FOR SHARE', ['plan:Risks & Issues']);
+      const existingRisk = await client.query('SELECT id FROM indago.records WHERE id = $1', [qaRiskId]);
+      if (sheet.rows.length !== 1 || !Array.isArray(sheet.rows[0].columns) ||
+          sheet.rows[0].columns.length < 2 || existingRisk.rows.length) {
         await client.query('ROLLBACK');
-        return Response.json({ error: 'Test account is not ready.' }, { status: 409 });
+        return Response.json({ error: 'Test row is not ready.' }, { status: 409 });
       }
-      await client.query('DELETE FROM indago.members WHERE email = $1 AND role = $2',
-        [users[2].email, 'viewer']);
+      const position = await client.query(
+        'SELECT coalesce(max(position), 0) + 1 AS next FROM indago.records WHERE sheet_id = $1',
+        ['plan:Risks & Issues']);
+      const values = Array(sheet.rows[0].columns.length).fill('');
+      values[0] = 'QA-ONLY';
+      values[1] = qaRiskLabel;
+      await client.query('INSERT INTO indago.records(id, sheet_id, position, source_values) VALUES ($1, $2, $3, $4)',
+        [qaRiskId, 'plan:Risks & Issues', position.rows[0].next, JSON.stringify(values)]);
+    } else if (action === 'remove-risk') {
+      const row = await client.query('SELECT sheet_id, source_values FROM indago.records WHERE id = $1 FOR UPDATE',
+        [qaRiskId]);
+      if (row.rows.length !== 1 || row.rows[0].sheet_id !== 'plan:Risks & Issues' ||
+          row.rows[0].source_values?.[0] !== 'QA-ONLY' ||
+          row.rows[0].source_values?.[1] !== qaRiskLabel) {
+        await client.query('ROLLBACK');
+        return Response.json({ error: 'Test row does not match.' }, { status: 409 });
+      }
+      await client.query('DELETE FROM indago.history WHERE record_id = $1', [qaRiskId]);
+      await client.query('DELETE FROM indago.records WHERE id = $1', [qaRiskId]);
     } else {
-      for (const user of users) {
-        await client.query('INSERT INTO indago.members(email, role) VALUES ($1, $2)',
-          [user.email, user.role]);
+      const existing = await client.query(
+        'SELECT email, role FROM indago.members WHERE email = ANY($1::text[]) FOR UPDATE',
+        [users.map(user => user.email)],
+      );
+      if (action === 'invite' && existing.rows.length) {
+        await client.query('ROLLBACK');
+        return Response.json({ error: 'Test invite already exists.' }, { status: 409 });
+      }
+      if (action === 'revoke-uninvited') {
+        const row = existing.rows.find(item => item.email === users[2].email);
+        if (!row || row.role !== 'viewer') {
+          await client.query('ROLLBACK');
+          return Response.json({ error: 'Test account is not ready.' }, { status: 409 });
+        }
+        await client.query('DELETE FROM indago.members WHERE email = $1 AND role = $2',
+          [users[2].email, 'viewer']);
+      } else {
+        for (const user of users) {
+          await client.query('INSERT INTO indago.members(email, role) VALUES ($1, $2)',
+            [user.email, user.role]);
+        }
       }
     }
     await client.query('COMMIT');

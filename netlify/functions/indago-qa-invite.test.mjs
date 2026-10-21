@@ -100,3 +100,65 @@ test('a failed invite rolls back without exposing the database error', async () 
   assert.equal(calls.includes('COMMIT'), false);
   assert.equal((await response.text()).includes('private database detail'), false);
 });
+
+test('seed action adds one labelled synthetic risk with the sheet width', async () => {
+  const calls = [];
+  const client = {
+    release() {},
+    async query(sql, args = []) {
+      calls.push([sql, args]);
+      if (sql.startsWith('SELECT id, columns')) return { rows: [{ id: 'plan:Risks & Issues', columns: Array(7).fill('') }] };
+      if (sql.startsWith('SELECT id FROM')) return { rows: [] };
+      if (sql.startsWith('SELECT coalesce')) return { rows: [{ next: 42 }] };
+      return { rows: [] };
+    },
+  };
+  const response = await handleQaInvite(request(undefined, url, 'seed-risk'), env,
+    async () => ({ pool: { connect: async () => client } }));
+  assert.equal(response.status, 200);
+  const insert = calls.find(([sql]) => sql.startsWith('INSERT INTO indago.records'));
+  assert.equal(insert[1][0], 'qa:cross-user-risk');
+  assert.equal(insert[1][2], 42);
+  assert.deepEqual(JSON.parse(insert[1][3]).slice(0, 2), ['QA-ONLY', 'Synthetic QA row; safe to edit']);
+  assert.equal(JSON.parse(insert[1][3]).length, 7);
+  assert.equal(calls.at(-1)[0], 'COMMIT');
+});
+
+test('remove action deletes history and only the labelled synthetic risk', async () => {
+  const calls = [];
+  const client = {
+    release() {},
+    async query(sql, args = []) {
+      calls.push([sql, args]);
+      if (sql.startsWith('SELECT sheet_id')) return { rows: [{
+        sheet_id: 'plan:Risks & Issues', source_values: ['QA-ONLY', 'Synthetic QA row; safe to edit'],
+      }] };
+      return { rows: [] };
+    },
+  };
+  const response = await handleQaInvite(request(undefined, url, 'remove-risk'), env,
+    async () => ({ pool: { connect: async () => client } }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls.filter(([sql]) => sql.startsWith('DELETE')).map(([, args]) => args),
+    [['qa:cross-user-risk'], ['qa:cross-user-risk']]);
+  assert.equal(calls.at(-1)[0], 'COMMIT');
+});
+
+test('remove action refuses a changed source row before any delete', async () => {
+  const calls = [];
+  const client = {
+    release() {},
+    async query(sql) {
+      calls.push(sql);
+      if (sql.startsWith('SELECT sheet_id')) return { rows: [{
+        sheet_id: 'plan:Risks & Issues', source_values: ['QA-ONLY', 'unexpected source'],
+      }] };
+      return { rows: [] };
+    },
+  };
+  const response = await handleQaInvite(request(undefined, url, 'remove-risk'), env,
+    async () => ({ pool: { connect: async () => client } }));
+  assert.equal(response.status, 409);
+  assert.ok(calls.includes('ROLLBACK'));
+  assert.equal(calls.some(sql => sql.startsWith('DELETE')), false);
+});
