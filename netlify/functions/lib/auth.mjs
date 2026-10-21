@@ -2,8 +2,6 @@ import { betterAuth } from 'better-auth';
 import { magicLink } from 'better-auth/plugins';
 import { db } from './db.mjs';
 import { Resend } from 'resend';
-import { captureQaLink } from './qa-links.mjs';
-
 
 export const auth = betterAuth({
   database: db.pool,
@@ -30,7 +28,6 @@ export const auth = betterAuth({
   plugins: [magicLink({
     storeToken: 'hashed',
     sendMagicLink: async ({ email, url }) => {
-      if (captureQaLink(email, url)) return;
       const { rows } = await db.pool.query(
         'SELECT 1 FROM indago.members WHERE email = lower($1)', [email],
       );
