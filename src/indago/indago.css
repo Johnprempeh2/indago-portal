@@ -282,10 +282,11 @@
 .indago .ns-tick { display: inline-flex; align-items: center; gap: 9px; margin: 8px 0; font-weight: 600; cursor: pointer; }
 .indago .ns-tick input { width: 18px; height: 18px; accent-color: var(--gs-accent); }
 .indago .ns-field :focus-visible { outline: 2px solid var(--gs-accent); outline-offset: 2px; }
-.indago .ns-error { color: #ffb3a7; font-size: 13px; }
+.indago .ns-error { color: var(--gs-danger); font-size: 13px; }
 .indago .ns-preview { border-left: 3px solid var(--gs-accent); padding: 12px 16px; background: var(--gs-bg-card); }
-.indago .ns-guardrails { position: sticky; top: 70px; z-index: 3; background: var(--gs-bg-card); border: 1px solid var(--gs-border-soft); border-radius: 12px; padding: 12px 18px; margin: 22px 0; }
+.indago .ns-guardrails { background: var(--gs-panel); border: 1px solid var(--gs-border-soft); border-radius: 12px; padding: 12px 18px; margin: 22px 0; }
 .indago .ns-guardrails summary { cursor: pointer; font-weight: 700; }
+.indago .ns-guardrails ol { padding-left: 24px; }
 .indago .ns-guardrails li { margin: 8px 0; line-height: 1.45; }
 .indago .ns-clock { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--gs-border-soft); border-radius: 10px; background: var(--gs-bg-card); }
 .indago .ns-clock strong { color: var(--gs-accent); font-size: 28px; font-variant-numeric: tabular-nums; }
@@ -316,7 +317,6 @@
 @media (max-width: 640px) {
   .indago .ns-head { display: block; }
   .indago .ns-grid, .indago .ns-futures { grid-template-columns: 1fr; }
-  .indago .ns-guardrails { top: 68px; }
   .indago .ns-clock { align-items: start; flex-direction: column; }
   .indago .container { padding: 0 16px; }
   .indago header.top { padding: 14px 0 12px; }

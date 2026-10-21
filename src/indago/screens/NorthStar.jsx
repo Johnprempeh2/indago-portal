@@ -181,7 +181,7 @@ export default function NorthStar({ state, canEdit, northStar, northStarActions,
         onClick={() => run(async () => { const { id } = await northStarActions.addHypothesis(); await northStarActions.save(`hypothesis.${id}.evidence`, request); })}>Add: {request}</button>)}</div></>)}
 
     {section(10, 'Approval and version control', <><p className="note">{t.important}</p><p><b>Record:</b> {t.id} · <b>Next decision gate:</b> G2 — North Star</p>
-      {f['convergence.6.answer'] !== 'Yes' && <p className="ns-error">Gordon acceptance must be Yes before approval.</p>}
+      {f['convergence.6.answer'] !== 'Yes' && <p className="note">Gordon acceptance must be Yes before approval.</p>}
       <div className="ns-grid">{field('approval.status', 'Record status', ['', 'Draft', 'Confirmed in session', 'Approved', 'Approved with exceptions'])}
         {field('approval.version', 'Version')}{field('approval.date', 'Version date', null, false, 'date')}
         {field('approval.confirmationName', 'Gordon confirmation name')}{field('approval.confirmationDate', 'Gordon confirmation date', null, false, 'date')}
