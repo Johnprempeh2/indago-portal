@@ -1,6 +1,8 @@
 import { db } from './lib/db.mjs';
 import { auth } from './lib/auth.mjs';
 import { handlePortalRequest } from './indago/portal-api.mjs';
+import { handleDeliverables } from './indago/deliverables.mjs';
+import { getStore } from '@netlify/blobs';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -43,7 +45,9 @@ export default async function handler(request) {
   const route = new URL(request.url).pathname.replace(/^\/api\/indago\/?/, '');
   const openAccess = process.env.INDAGO_OPEN_ACCESS === 'true';
   const session = openAccess ? null : await auth.api.getSession({ headers: request.headers });
-  return withMember(session, (client, role) => handlePortalRequest(request, client, role, route, openAccess), openAccess);
+  return withMember(session, (client, role) => route.startsWith('deliverables')
+    ? handleDeliverables(request, client, role, route, getStore({ name: 'indago-deliverables', consistency: 'strong' }))
+    : handlePortalRequest(request, client, role, route, openAccess), openAccess);
 }
 
 export const config = { path: '/api/indago/*' };
