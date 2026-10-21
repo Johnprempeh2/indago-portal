@@ -1,3 +1,4 @@
+/api/indago-import /404.html 404!
 /indago /portal/indago 302
 /demo /demo/ 301
 /demo/* /demo/index.html 200
