@@ -13,6 +13,13 @@ test('save reports a version conflict without hiding it', async () => {
   await assert.rejects(api.save({ id: 'r1', version: 1 }, { 1: 'Done' }), /changed in another browser/);
 });
 
+test('membership preserves an HTTP denial status for the sign-in screen', async () => {
+  const api = makeIndagoApi(async () => ({
+    ok: false, status: 403, async json() { return { error: 'No Indago invitation.' }; },
+  }));
+  await assert.rejects(api.membership(), error => error.status === 403 && error.message === 'No Indago invitation.');
+});
+
 test('CSV export treats spreadsheet formulas as text', () => {
   assert.equal(toCsv(['Value'], [{ source_values: ['=2+2'], edits: {} }]), '"Value"\r\n"\'=2+2"\r\n');
 });

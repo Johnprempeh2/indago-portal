@@ -4,7 +4,7 @@ export function makeIndagoApi(fetcher = fetch) {
       ? { credentials: 'same-origin' }
       : { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Portal request failed.');
+    if (!response.ok) throw Object.assign(new Error(result.error || 'Portal request failed.'), { status: response.status });
     return result;
   };
   return {
