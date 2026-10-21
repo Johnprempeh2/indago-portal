@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { authClient } from './lib/auth-client.mjs';
-import { makeIndagoApi } from './lib/indago.mjs';
-import { makeRecordStore, recordsToState } from './data/record-store.mjs';
-import IndagoApp from './IndagoApp.jsx';
+import { makeIndagoApi } from './indago/indago.mjs';
+import { makeRecordStore, recordsToState } from './indago/data/record-store.mjs';
+import IndagoApp from './indago/IndagoApp.jsx';
+import GreatstoneFooter from './indago/GreatstoneFooter.jsx';
 
 export default function App() {
   const { data: session, isPending } = authClient.useSession();
@@ -38,7 +39,7 @@ function SignIn() {
     setPreviewPassword('');
     setMessage(error ? 'Preview sign-in failed. Check the password and try again.' : 'Signed in.');
   }
-  return <main className="state">
+  return <><main className="state">
     <p className="eyebrow">Greatstone International</p><h1>Indago project portal</h1>
     <p>Sign in with the email address invited to this workspace.</p>
     <form onSubmit={submit}><label htmlFor="email">Email address</label><input id="email" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} /><button>Send sign-in link</button></form>
@@ -51,7 +52,7 @@ function SignIn() {
       <button>Sign in to preview</button>
     </form>}
     {message && <p role="status">{message}</p>}
-  </main>;
+  </main><GreatstoneFooter /></>;
 }
 
 function Workspace() {

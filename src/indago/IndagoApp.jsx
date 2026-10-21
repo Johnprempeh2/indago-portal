@@ -10,7 +10,8 @@ import Risks from './screens/Risks.jsx';
 import Investigation from './screens/Investigation.jsx';
 import Evidence from './screens/Evidence.jsx';
 import Traceability from './screens/Traceability.jsx';
-import logo from './assets/greatstone-logo-web.png';
+import logo from '../assets/greatstone-logo-web.png';
+import GreatstoneFooter from './GreatstoneFooter.jsx';
 import './indago.css';
 
 const SCREENS = { control: ControlCentre, plan: WorkPlan, gates: Gates, risks: Risks, investigation: Investigation, evidence: Evidence, trace: Traceability };
@@ -128,11 +129,7 @@ export default function IndagoApp({ store, headerSlot, status }) {
           <Screen state={state} canEdit={canEdit} actions={actions} onOpen={open} />
         </main>
 
-        <footer>
-          <img className="gs-logo" src={logo} alt="" width="130" height="26" />
-          <div>The Foundation of Digital Excellence · © 2026 Greatstone International · Greatstone internal</div>
-          <div>Future-state ideas are Greatstone hypotheses, not verified Indago facts.</div>
-        </footer>
+        <GreatstoneFooter />
       </div>
     </div>
   );

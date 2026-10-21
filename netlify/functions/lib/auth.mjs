@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth';
 import { magicLink } from 'better-auth/plugins';
 import { db } from './db.mjs';
 import { Resend } from 'resend';
+import { captureQaLink } from './qa-links.mjs';
 
 
 export const auth = betterAuth({
@@ -29,6 +30,7 @@ export const auth = betterAuth({
   plugins: [magicLink({
     storeToken: 'hashed',
     sendMagicLink: async ({ email, url }) => {
+      if (captureQaLink(email, url)) return;
       const { rows } = await db.pool.query(
         'SELECT 1 FROM indago.members WHERE email = lower($1)', [email],
       );
@@ -39,8 +41,8 @@ export const auth = betterAuth({
       const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
         from: process.env.RESEND_FROM,
         to: email,
-        subject: 'Your Indago sign-in link',
-        text: `Use this link to sign in to the Indago portal: ${url}`,
+        subject: 'Your Greatstone Indago sign-in link',
+        text: `Use this link to sign in to your Greatstone Indago portal: ${url}`,
       });
       if (error) throw new Error('Email delivery failed');
     },

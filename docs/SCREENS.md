@@ -20,7 +20,7 @@ The screens never call Supabase. The data layer (GRE-1683) renders
 | `gates` | `{ id, stage, accept, owner, status, date, exc }` |
 | `ms` | `{ name, period, pre, out, status, date }` |
 | `risks` | `{ id, risk, l, i, owner, resp, status }` |
-| `reg` | `{ [sheet]: { cols[], rows[][] } }` for the ten register sheets in `src/model/options.mjs` |
+| `reg` | `{ [sheet]: { cols[], rows[][] } }` for the ten register sheets in `src/indago/model/options.mjs` |
 | `check` | first-week checklist, `bool[]` |
 | `toolkit` | `{ rules, authority, stages, agenda, nsq, interviews, instruments, rhythm, checklist }` |
 
@@ -32,7 +32,7 @@ The screens never call Supabase. The data layer (GRE-1683) renders
 `updateRisk(id, field, value)`, `addRisk()`, `updateRegCell(sheet, rowId, col, value)`, `addRegRow(sheet)`,
 `setKickoff(date)`, `setCheck(index, done)`.
 
-`src/model/local-store.mjs` has the same actions as a pure reducer (`reduce`, `bindActions`), with the v1 rules:
+`src/indago/model/local-store.mjs` has the same actions as a pure reducer (`reduce`, `bindActions`), with the v1 rules:
 marking work Complete or a gate Approved fills in today's date if none is set; locked client columns
 (Client Findings 0–4, Information Requests 0–2) and the two client registers' row lists cannot change.
 RLS is the real lock; the reducer is for optimistic updates and the demo.
@@ -42,8 +42,8 @@ Text and date fields save when they lose focus (or on Enter); selects save on ch
 ## Demo and tests
 
 - `npx vite --config demo/vite.config.mjs` serves the screens on **made-up** data
-  (`src/fixture/demo-state.mjs`). Add `?viewer` to the address for the Viewer role.
-- `npm test` runs the model tests and `src/screens/screens.dom.test.mjs`, which mounts every screen in
+  (`src/indago/fixture/demo-state.mjs`). Add `?viewer` to the address for the Viewer role.
+- `npm test` runs the model tests and `src/indago/screens/screens.dom.test.mjs`, which mounts every screen in
   happy-dom: renders for Editor and Viewer, no editable field for a Viewer, no input on locked columns,
   save on blur, and keyboard tabs.
 

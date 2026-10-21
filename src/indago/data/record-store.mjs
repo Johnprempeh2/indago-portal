@@ -1,6 +1,6 @@
 import { REG } from '../model/options.mjs';
 import { newRisk, newRegRow } from '../model/indago-model.mjs';
-import { displayValues } from '../lib/indago.mjs';
+import { displayValues } from '../indago.mjs';
 
 const PLAN = {
   'Work Breakdown': ['id', 'ws', 'task', 'role', 'start', 'finish', 'deps', 'exit', 'gate', 'status', null, 'actual', 'link', 'blocker'],
