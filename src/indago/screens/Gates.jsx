@@ -2,7 +2,7 @@ import React from 'react';
 import { gateProgress } from '../model/indago-model.mjs';
 import { Bar, EditSelect, EditText, Governs, Pill } from './ui.jsx';
 
-export default function Gates({ state, canEdit, actions }) {
+export default function Gates({ state, canEdit, actions, northStar, onOpen }) {
   const stages = state.toolkit?.stages || [];
   return (
     <>
@@ -20,6 +20,8 @@ export default function Gates({ state, canEdit, actions }) {
               <div className="section-label">{g.id}{st.n && ` · Stage ${st.n}`}</div>
               <h3 id={`gate-${g.id}`} className="gate-title">{g.stage}</h3>
               <p className="muted"><b>Acceptance evidence:</b> {g.accept}</p>
+              {g.id === 'G2' && ['Approved', 'Approved with exceptions'].includes(northStar?.fields?.['approval.status']) &&
+                <p className="muted"><b>North Star evidence:</b> <button className="link-button" onClick={() => onOpen('north-star')}>IND-NS-001</button>. Gate decision remains a separate human action.</p>}
               {st.o && <p className="muted"><b>Toolkit output:</b> {st.o}</p>}
               <p className="small faint">Owner: {g.owner} · {p.count} work packages:{' '}
                 {p.workPackages.map((w) => <Pill key={w.id} status={w.status}>{w.id}</Pill>)}

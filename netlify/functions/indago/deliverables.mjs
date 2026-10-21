@@ -36,12 +36,15 @@ function validSignature(bytes, extension) {
   return false;
 }
 
-export async function handleDeliverables(request, client, role, route, store) {
+export async function handleDeliverables(request, client, role, route, store, openAccess = false) {
   if (request.method === 'GET' && route === 'deliverables') {
     const result = await client.query(`SELECT d.id, d.record_id, r.source_values->>0 AS work_package_id,
       d.file_name, d.file_type, d.byte_size, d.chunk_count, d.sha256, d.uploaded_by, d.uploaded_at
       FROM indago.deliverables d JOIN indago.records r ON r.id = d.record_id
-      WHERE d.status = 'active' ORDER BY d.uploaded_at DESC`);
+      WHERE d.status = 'active' AND ($1::boolean = false OR NOT
+        (r.source_values->>8 = 'G2' OR coalesce(r.source_values->>1, '') ILIKE '%north star%' OR
+         coalesce(r.source_values->>2, '') ILIKE '%north star%'))
+      ORDER BY d.uploaded_at DESC`, [openAccess]);
     return json(result.rows);
   }
   const match = /^deliverables\/([a-f0-9-]{36})\/(chunk\/(\d+)|finish|remove|download\/(\d+))$/.exec(route);
@@ -55,7 +58,9 @@ export async function handleDeliverables(request, client, role, route, store) {
       return json({ error: `Choose a PDF, DOCX, XLSX, CSV, PPTX, image or ZIP under 50 MB.` }, 400);
     }
     const record = await client.query(`SELECT r.id FROM indago.records r JOIN indago.sheets s ON s.id = r.sheet_id
-      WHERE r.source_values->>0 = $1 AND s.title = 'Work Breakdown'`, [recordId]);
+      WHERE r.source_values->>0 = $1 AND s.title = 'Work Breakdown' AND
+        ($2::boolean = false OR NOT (r.source_values->>8 = 'G2' OR coalesce(r.source_values->>1, '') ILIKE '%north star%' OR
+         coalesce(r.source_values->>2, '') ILIKE '%north star%'))`, [recordId, openAccess]);
     if (!record.rows.length) return json({ error: 'Work package not found.' }, 404);
     const id = randomUUID();
     const ext = name.split('.').at(-1).toLowerCase();
@@ -67,9 +72,13 @@ export async function handleDeliverables(request, client, role, route, store) {
   }
   if (!match || !validId(match[1])) return json({ error: 'Not found.' }, 404);
   const id = match[1];
-  const result = await client.query(`SELECT * FROM indago.deliverables WHERE id = $1`, [id]);
+  const result = await client.query(`SELECT d.*,
+    (r.source_values->>8 = 'G2' OR coalesce(r.source_values->>1, '') ILIKE '%north star%' OR
+     coalesce(r.source_values->>2, '') ILIKE '%north star%') AS north_star_work
+    FROM indago.deliverables d JOIN indago.records r ON r.id = d.record_id WHERE d.id = $1`, [id]);
   const file = result.rows[0];
   if (!file) return json({ error: 'File not found.' }, 404);
+  if (openAccess && file.north_star_work) return json({ error: 'North Star requires named sign-in.' }, 403);
 
   if (request.method === 'GET' && match[4] !== undefined) {
     if (file.status !== 'active') return json({ error: 'File not found.' }, 404);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { REG } from '../model/options.mjs';
 import { calcCell, filterRegRows, regFilterOptions } from '../model/indago-model.mjs';
 import { EditSelect, EditText, FilterSelect, Governs, Pill, TabList } from './ui.jsx';
@@ -21,7 +21,7 @@ function Cell({ sheet, cfg, row, ci, col, canEdit, onCommit }) {
   return <td className="mid" data-label={col}><EditText canEdit={canEdit} value={v} onCommit={onCommit} label={label} inputMode={(cfg.num || []).includes(ci) ? 'decimal' : undefined} /></td>;
 }
 
-export default function Evidence({ state, canEdit, actions }) {
+export default function Evidence({ state, canEdit, actions, evidenceJump, onOpen }) {
   const sheets = Object.keys(REG).filter((k) => state.reg[k]);
   const [cur, setCur] = useState(sheets[0]);
   const [filters, setFilters] = useState({});
@@ -31,6 +31,16 @@ export default function Evidence({ state, canEdit, actions }) {
   const setF = (patch) => setFilters((x) => ({ ...x, [cur]: { ...F, ...patch } }));
   const rows = filterRegRows(cur, R.rows, F);
   const tabs = sheets.map((k) => ({ id: k, label: REG[k].label, count: state.reg[k].rows.length }));
+  useEffect(() => {
+    if (!evidenceJump) return;
+    const found = sheets.find(name => state.reg[name].rows.some(row => row[0] === evidenceJump));
+    if (found) setCur(found);
+  }, [evidenceJump]);
+  useEffect(() => {
+    if (!evidenceJump) return;
+    const target = document.getElementById(`evidence-${evidenceJump}`);
+    target?.scrollIntoView({ block: 'center' });
+  }, [evidenceJump, cur]);
 
   return (
     <>
@@ -60,8 +70,9 @@ export default function Evidence({ state, canEdit, actions }) {
                 </td></tr>
               )}
               {rows.map(({ row }) => (
-                <tr key={row[0]}>
+                <tr key={row[0]} id={`evidence-${row[0]}`}>
                   {R.cols.map((col, ci) => (
+                    ci === 6 && cur === 'North Star Requests' ? <td key={ci} data-label={col}><button className="link-button" onClick={() => onOpen('north-star')}>{row[ci]}</button></td> :
                     <Cell key={ci} sheet={cur} cfg={cfg} row={row} ci={ci} col={col} canEdit={canEdit} onCommit={(v) => actions.updateRegCell(cur, row[0], ci, v)} />
                   ))}
                 </tr>

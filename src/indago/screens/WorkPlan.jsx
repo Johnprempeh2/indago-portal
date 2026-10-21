@@ -5,7 +5,7 @@ import { EditSelect, EditText, FilterSelect, Governs, Pill } from './ui.jsx';
 
 const COLS = ['WBS', 'Task / activity', 'Accountable role', 'Named owner', 'Period', 'Depends on', 'Exit criterion', 'Gate', 'Status', '%', 'Actual finish', 'Evidence / link', 'Blocker / decision'];
 
-function Deliverables({ id, files, canEdit, fileActions }) {
+export function Deliverables({ id, files, canEdit, fileActions }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const run = async work => {
@@ -38,7 +38,7 @@ function Deliverables({ id, files, canEdit, fileActions }) {
   </details>;
 }
 
-export default function WorkPlan({ state, canEdit, actions, files = [], fileActions }) {
+export default function WorkPlan({ state, canEdit, actions, files = [], fileActions, onOpen, hideNorthStar = false }) {
   const [f, setF] = useState(EMPTY_WBS_FILTER);
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
   const rows = filterWbs(state, f);
@@ -81,9 +81,9 @@ export default function WorkPlan({ state, canEdit, actions, files = [], fileActi
               return (
                 <React.Fragment key={w.id}>
                   {head && <tr className="group"><td colSpan={COLS.length}>{head}</td></tr>}
-                  <tr>
+                  <tr id={`wbs-${w.id}`}>
                     <td className="id" data-label="WBS">{w.id} <span className="file-count" aria-label={`${files.filter(file => file.work_package_id === w.id).length} deliverables`}>{files.filter(file => file.work_package_id === w.id).length}</span></td>
-                    <td className="mid task" data-label="Task">{w.task}</td>
+                    <td className="mid task" data-label="Task">{w.task}{!hideNorthStar && (w.gate === 'G2' || /north star/i.test(`${w.task} ${w.ws}`)) && <button type="button" className="link-button" onClick={() => onOpen('north-star')}>Open North Star instrument</button>}</td>
                     <td data-label="Role">{w.role}</td>
                     <td data-label="Named owner"><EditText canEdit={canEdit} value={w.person} onCommit={edit(w, 'person')} label={lbl('Named owner')} placeholder="Add name" /></td>
                     <td data-label="Period" className="period">

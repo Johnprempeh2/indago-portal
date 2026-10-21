@@ -3,11 +3,16 @@ BEGIN;
 INSERT INTO indago.members(email,user_id,role) VALUES
  ('editor@example.test','editor-1','editor'),
  ('viewer@example.test','viewer-1','viewer');
-INSERT INTO indago.sheets VALUES
+INSERT INTO indago.sheets(id, title, source_name, columns, locked_columns, position)
+SELECT fixture.id, fixture.title, fixture.source_name, fixture.columns::jsonb,
+  fixture.locked_columns::jsonb, existing.last_position + fixture.position_offset
+FROM (SELECT coalesce(max(position), 0) AS last_position FROM indago.sheets) AS existing
+CROSS JOIN (VALUES
  ('register:Client Findings','Client Findings ','test','["ID","Area","Class","Original","Source","Status"]','[0,1,2,3,4]',1),
  ('register:Information Requests','Information Requests ','test','["ID","Request","Source","Status"]','[0,1,2]',2),
  ('risks','Risks & Issues','test','["ID","Risk"]','[0]',3),
- ('settings','Portal Settings','test','["Setting"]','[0]',4);
+ ('settings','Portal Settings','test','["Setting"]','[0]',4)
+) AS fixture(id, title, source_name, columns, locked_columns, position_offset);
 INSERT INTO indago.records(id,sheet_id,position,source_values) VALUES
  ('finding-1','register:Client Findings',1,'["F-1","Area","Class","Original","Source","Open"]'),
  ('request-1','register:Information Requests',1,'["Q-1","Request","Source","Open"]'),
@@ -26,7 +31,9 @@ DO $$ BEGIN
 END $$;
 DO $$ BEGIN
   BEGIN
-    INSERT INTO indago.sheets VALUES ('bad','Bad','test','["ID"]','["0"]',5);
+    INSERT INTO indago.sheets VALUES
+      ('bad','Bad','test','["ID"]','["0"]',
+       (SELECT coalesce(max(position), 0) + 1 FROM indago.sheets));
     RAISE EXCEPTION 'string locked index accepted';
   EXCEPTION WHEN check_violation THEN NULL;
   END;

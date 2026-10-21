@@ -46,7 +46,7 @@ export default async function handler(request) {
   const openAccess = process.env.INDAGO_OPEN_ACCESS === 'true';
   const session = openAccess ? null : await auth.api.getSession({ headers: request.headers });
   return withMember(session, (client, role) => route.startsWith('deliverables')
-    ? handleDeliverables(request, client, role, route, getStore({ name: 'indago-deliverables', consistency: 'strong' }))
+    ? handleDeliverables(request, client, role, route, getStore({ name: 'indago-deliverables', consistency: 'strong' }), openAccess)
     : handlePortalRequest(request, client, role, route, openAccess), openAccess);
 }
 

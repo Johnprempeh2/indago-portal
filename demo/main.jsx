@@ -4,6 +4,7 @@ import React, { useMemo, useReducer, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import IndagoApp from '../src/indago/IndagoApp.jsx';
 import { demoState } from '../src/indago/fixture/demo-state.mjs';
+import { demoNorthStar as template } from '../src/indago/fixture/demo-north-star.mjs';
 import { reduce, bindActions } from '../src/indago/model/local-store.mjs';
 
 function Demo() {
@@ -14,6 +15,12 @@ function Demo() {
     byte_size: new TextEncoder().encode(sample).length, chunk_count: 1,
     uploaded_by: 'Demo Person', uploaded_at: '2026-10-20T09:00:00Z',
   }]);
+  const [northStar, setNorthStar] = useState({ template, fields: {
+    'draft.agreed': 'By 2031, a fictional research team will help clients make clearer decisions with evidence they can trust.',
+    'approval.status': 'Draft',
+    'question.0.verbatim': 'Invented workshop note: we want clients to make decisions with confidence.',
+    'hypothesis.NS-H-01.fact': 'Invented hypothesis about client decision use cases.',
+  } });
   const actions = useMemo(() => bindActions(dispatch), []);
   const canEdit = !new URLSearchParams(location.search).has('viewer');
   const save = (name, data) => {
@@ -32,7 +39,23 @@ function Demo() {
     remove: async id => setFiles(current => current.filter(file => file.id !== id)),
     download: async file => save(file.file_name, file.data || sample),
   };
-  return <IndagoApp store={{ state, canEdit, actions, files, fileActions }} status={<span className="badge">Demo data</span>} />;
+  const northStarActions = {
+    save: async (key, value) => {
+      if (key === 'approval.status' && value.startsWith('Approved') && northStar.fields['convergence.6.answer'] !== 'Yes') {
+        throw new Error('Record participant acceptance as Yes before approval.');
+      }
+      setNorthStar(current => ({ ...current, fields: { ...current.fields, [key]: value } }));
+    },
+    addHypothesis: async () => {
+      const numbers = Object.keys(northStar.fields).map(key => Number(key.match(/^hypothesis\.NS-H-(\d+)/)?.[1] || 0));
+      const id = `NS-H-${String(Math.max(6, ...numbers) + 1).padStart(2, '0')}`;
+      setNorthStar(current => ({ ...current, fields: { ...current.fields, [`hypothesis.${id}.created`]: '' } }));
+      return { id };
+    },
+    sendHypothesis: async id => setNorthStar(current => ({ ...current, fields: { ...current.fields, [`hypothesis.${id}.request`]: 'DEMO-RQ-001' } })),
+    history: async () => [],
+  };
+  return <IndagoApp store={{ state, canEdit, actions, files, fileActions, northStar, northStarActions }} status={<span className="badge">Demo data</span>} />;
 }
 
 createRoot(document.getElementById('root')).render(<Demo />);

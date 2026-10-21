@@ -11,13 +11,13 @@ const req = (path, method = 'GET', body) => new Request(`https://example.test/ap
 });
 function fixture(bytes = pdf, name = 'Demo.pdf') {
   const map = new Map();
-  const file = { id, record_id: 'plan:1', file_name: name, file_type: 'application/pdf',
+  const file = { id, record_id: 'plan:1', north_star_work: false, file_name: name, file_type: 'application/pdf',
     byte_size: bytes.length, chunk_count: Math.ceil(bytes.length / CHUNK_SIZE), sha256: sha(bytes), status: 'uploading' };
   const queries = [];
   const client = { async query(sql, values) {
     queries.push([sql, values]);
     if (sql.includes('SELECT r.id')) return { rows: [{ id: 'plan:1' }] };
-    if (sql.includes('SELECT * FROM indago.deliverables')) return { rows: [file] };
+    if (sql.includes('WHERE d.id = $1')) return { rows: [file] };
     if (sql.includes('SET status')) { file.status = /SET status = 'active'/.test(sql) ? 'active' : 'deleted'; return { rows: [] }; }
     return { rows: [] };
   } };
@@ -45,6 +45,14 @@ test('a viewer can download an active chunk and cannot upload or remove', async 
   assert.equal(download.headers.get('Content-Disposition'), 'attachment');
   assert.equal((await handleDeliverables(req(`${path}/remove`, 'POST'), client, 'viewer', `${path}/remove`, store)).status, 403);
   assert.equal((await handleDeliverables(req('deliverables/init', 'POST'), client, 'viewer', 'deliverables/init', store)).status, 403);
+});
+
+test('open access cannot download a signed North Star work-package file', async () => {
+  const { client, store, file, map } = fixture();
+  file.status = 'active'; file.north_star_work = true; map.set(`${id}/0`, pdf.buffer);
+  const path = `deliverables/${id}/download/0`;
+  const response = await handleDeliverables(req(path), client, 'editor', path, store, true);
+  assert.equal(response.status, 403);
 });
 
 test('finish accepts byte-identical chunks, rejects a changed file, and removal changes status', async () => {

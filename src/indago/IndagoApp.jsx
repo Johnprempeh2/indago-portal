@@ -10,11 +10,12 @@ import Risks from './screens/Risks.jsx';
 import Investigation from './screens/Investigation.jsx';
 import Evidence from './screens/Evidence.jsx';
 import Traceability from './screens/Traceability.jsx';
+import NorthStar from './screens/NorthStar.jsx';
 import logo from '../assets/greatstone-logo-web.png';
 import GreatstoneFooter from './GreatstoneFooter.jsx';
 import './indago.css';
 
-const SCREENS = { control: ControlCentre, plan: WorkPlan, gates: Gates, risks: Risks, investigation: Investigation, evidence: Evidence, trace: Traceability };
+const SCREENS = { control: ControlCentre, plan: WorkPlan, 'north-star': NorthStar, gates: Gates, risks: Risks, investigation: Investigation, evidence: Evidence, trace: Traceability };
 
 const tabFromHash = () => {
   const h = (typeof location !== 'undefined' ? location.hash : '').slice(1);
@@ -53,8 +54,9 @@ const GOV = [
 // { state, canEdit, actions } — see README "Data contract".
 // `headerSlot` lets the host add sign-out, history or live-status controls.
 export default function IndagoApp({ store, headerSlot, status }) {
-  const { state, canEdit, actions, files = [], fileActions } = store;
+  const { state, canEdit, actions, files = [], fileActions, northStar, northStarActions, hideNorthStar = false } = store;
   const [tab, setTab] = useState(tabFromHash);
+  const [evidenceJump, setEvidenceJump] = useState('');
 
   useEffect(() => {
     const onHash = () => setTab(tabFromHash());
@@ -122,11 +124,14 @@ export default function IndagoApp({ store, headerSlot, status }) {
         )}
 
         <nav ref={navRef} className="tabs-bar" aria-label="Portal sections">
-          <TabList tabs={TABS} current={tab} onSelect={open} label="Portal sections" idPrefix="indago" />
+          <TabList tabs={TABS.filter(item => !hideNorthStar || item.id !== 'north-star')} current={tab} onSelect={open} label="Portal sections" idPrefix="indago" />
         </nav>
 
         <main ref={panelRef} id="indago-panel" className="panel" role="tabpanel" aria-labelledby={`indago-tab-${tab}`} tabIndex={-1}>
-          <Screen state={state} canEdit={canEdit} actions={actions} files={files} fileActions={fileActions} onOpen={open} />
+          {hideNorthStar && tab === 'north-star' ? <p role="alert">North Star requires named sign-in.</p> :
+          <Screen state={state} canEdit={canEdit} actions={actions} files={files} fileActions={fileActions} hideNorthStar={hideNorthStar}
+            northStar={northStar} northStarActions={northStarActions} onOpen={open}
+            evidenceJump={evidenceJump} onEvidence={id => { setEvidenceJump(id); open('evidence'); }} />}
         </main>
 
         <GreatstoneFooter />
