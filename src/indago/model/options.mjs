@@ -35,6 +35,7 @@ export const REG = {
   'Decisions': { label: 'Decisions', prefix: 'IND-DEC-', pad: 3, sel: { 7: 'decStatus' }, wide: [1], date: [3], filters: [7] },
   'GDXP Traceability': { label: 'GDXP™ traceability', prefix: 'IND-GDXP-', pad: 3, sel: { 9: 'gdxp' }, wide: [6], filters: [9] },
   'Validation Log': { label: 'Validation log', prefix: 'VAL-', pad: 3, sel: { 3: 'valDec' }, date: [5], filters: [1, 3] },
+  'North Star Requests': { label: 'North Star requests', lock: [0, 1, 6], wide: [2], date: [4], noAdd: true, filters: [] },
 };
 
 export const PERIODS = ['W1', 'W2', 'W3', 'W4', 'Post-playback'];
@@ -42,6 +43,7 @@ export const PERIODS = ['W1', 'W2', 'W3', 'W4', 'Post-playback'];
 export const TABS = [
   { id: 'control', label: 'Control centre' },
   { id: 'plan', label: 'Work plan', src: 'Plan' },
+  { id: 'north-star', label: 'North Star', src: 'NS-01' },
   { id: 'gates', label: 'Gates & milestones', src: 'Plan' },
   { id: 'risks', label: 'Risks', src: 'Plan' },
   { id: 'investigation', label: 'Investigation', src: 'Toolkit' },

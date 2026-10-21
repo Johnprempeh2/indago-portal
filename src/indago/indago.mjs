@@ -11,6 +11,11 @@ export function makeIndagoApi(fetcher = fetch) {
     async membership() { return call('membership'); },
     async snapshot() { return call('snapshot'); },
     async recentHistory() { return call('history'); },
+    async northStar() { return call('north-star'); },
+    async northStarHistory() { return call('north-star/history'); },
+    async saveNorthStarField(key, value) { return call('north-star/field', { key, value }); },
+    async addNorthStarHypothesis() { return call('north-star/hypothesis', {}); },
+    async sendNorthStarHypothesis(id) { return call('north-star/send', { id }); },
     async deliverables() { return call('deliverables'); },
     async uploadDeliverable(recordId, file) {
       if (file.size < 1 || file.size > 50 * 1024 * 1024) throw new Error('Choose a file under 50 MB.');

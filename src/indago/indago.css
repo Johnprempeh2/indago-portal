@@ -259,6 +259,46 @@
 
 .indago .dot-divider { height: 5px; margin: 34px auto; max-width: 300px; background: radial-gradient(circle, var(--gs-accent) 2.5px, transparent 3px) center / 11px 5px repeat-x; opacity: .6; }
 
+/* NS-01 uses the portal's existing dark operating surface and clear edit hierarchy. */
+.indago .north-star { max-width: 1120px; margin: auto; }
+.indago .ns-head { display: flex; justify-content: space-between; gap: 24px; align-items: start; }
+.indago .ns-actions, .indago .ns-recommendations { display: flex; flex-wrap: wrap; gap: 8px; }
+.indago .ns-head .ns-actions { flex: none; }
+.indago .ns-section { border-top: 1px solid var(--gs-border-soft); margin-top: 32px; padding-top: 24px; scroll-margin-top: 100px; }
+.indago .ns-section h3 { font-size: clamp(21px, 2.4vw, 28px); letter-spacing: -.02em; margin: 4px 0 16px; }
+.indago .ns-section h4 { font-size: 16px; margin: 0 0 8px; }
+.indago .ns-section h5 { font-size: 15px; margin: 0 0 8px; }
+.indago .ns-section p { line-height: 1.55; }
+.indago .ns-list { display: grid; gap: 12px; }
+.indago .ns-item { padding: 18px 0; border-bottom: 1px solid var(--gs-border-soft); break-inside: avoid; }
+.indago .ns-item:last-child { border-bottom: 0; }
+.indago .ns-item p { margin: 6px 0 14px; }
+.indago .ns-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+.indago .ns-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 10px 0; }
+.indago .ns-label { font-size: 12px; font-weight: 700; color: var(--gs-text-muted); }
+.indago .ns-field input, .indago .ns-field textarea, .indago .ns-field select { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--gs-border-input); border-radius: 8px; color: var(--gs-text); background: var(--gs-bg-darker); font: inherit; }
+.indago .ns-field textarea { resize: vertical; min-height: 88px; }
+.indago .ns-print-value { display: none; }
+.indago .ns-tick { display: inline-flex; align-items: center; gap: 9px; margin: 8px 0; font-weight: 600; cursor: pointer; }
+.indago .ns-tick input { width: 18px; height: 18px; accent-color: var(--gs-accent); }
+.indago .ns-field :focus-visible { outline: 2px solid var(--gs-accent); outline-offset: 2px; }
+.indago .ns-error { color: #ffb3a7; font-size: 13px; }
+.indago .ns-preview { border-left: 3px solid var(--gs-accent); padding: 12px 16px; background: var(--gs-bg-card); }
+.indago .ns-guardrails { position: sticky; top: 70px; z-index: 3; background: var(--gs-bg-card); border: 1px solid var(--gs-border-soft); border-radius: 12px; padding: 12px 18px; margin: 22px 0; }
+.indago .ns-guardrails summary { cursor: pointer; font-weight: 700; }
+.indago .ns-guardrails li { margin: 8px 0; line-height: 1.45; }
+.indago .ns-clock { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--gs-border-soft); border-radius: 10px; background: var(--gs-bg-card); }
+.indago .ns-clock strong { color: var(--gs-accent); font-size: 28px; font-variant-numeric: tabular-nums; }
+.indago .ns-question-group { margin-top: 24px; }
+.indago .ns-question { font-weight: 650; }
+.indago .ns-futures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.indago .ns-futures .ns-item { border: 1px solid var(--gs-border-soft); border-radius: 10px; padding: 18px; }
+.indago .ns-history { max-height: 340px; overflow: auto; border: 1px solid var(--gs-border-soft); padding: 16px; margin: 16px 0; }
+.indago .ns-history li { margin: 9px 0; overflow-wrap: anywhere; }
+.indago .link-button { border: 0; padding: 0; background: none; color: var(--gs-accent); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font: inherit; text-align: left; }
+.indago .link-button:focus-visible { outline: 2px solid var(--gs-accent); outline-offset: 3px; }
+.indago .ns-recommendations .btn { white-space: normal; text-align: left; }
+
 .indago .greatstone-footer { margin-top: 40px; }
 .greatstone-footer { display: grid; justify-items: center; gap: .6rem; padding: 2rem 1rem 3rem; border-top: 1px solid #343b35; color: #c4c8c1; text-align: center; font-size: .85rem; }
 .greatstone-footer img { display: block; max-width: 10rem; height: auto; }
@@ -274,6 +314,10 @@
 }
 
 @media (max-width: 640px) {
+  .indago .ns-head { display: block; }
+  .indago .ns-grid, .indago .ns-futures { grid-template-columns: 1fr; }
+  .indago .ns-guardrails { top: 68px; }
+  .indago .ns-clock { align-items: start; flex-direction: column; }
   .indago .container { padding: 0 16px; }
   .indago header.top { padding: 14px 0 12px; }
   .indago .gs-logo { max-width: 120px; }
@@ -331,6 +375,15 @@
 }
 
 @media print {
+  @page { size: A4; margin: 16mm; }
+  .indago .north-star { max-width: none; }
+  .indago .north-star .ns-guardrails { position: static; }
+  .indago .north-star .ns-guardrails > * { display: block !important; }
+  .indago .north-star .ns-history, .indago .north-star .ns-actions, .indago .north-star .ns-recommendations, .indago .north-star .link-button { display: none !important; }
+  .indago .north-star .ns-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .indago .north-star .ns-item { break-inside: avoid; }
+  .indago .north-star input, .indago .north-star textarea, .indago .north-star select { display: none !important; }
+  .indago .north-star .ns-print-value { display: block; white-space: pre-wrap; overflow-wrap: anywhere; color: #111; }
   .indago { background: #fff; color: #1a1a1a; --gs-text: #1a1a1a; --gs-text-muted: #333; --gs-text-faint: #555; --gs-border-soft: #ddd; --gs-accent: #5a7a00; }
   .indago .tabs-bar, .indago .toolbar, .indago .btn, .indago .export, .indago .skip { display: none !important; }
   .indago .table-wrap { max-height: none; overflow: visible; }

@@ -73,8 +73,23 @@ export function Workspace({ openAccess = false }) {
   const [error, setError] = useState('');
   const [history, setHistory] = useState(null);
   const [files, setFiles] = useState([]);
+  const [northStar, setNorthStar] = useState(null);
   const [lastSync, setLastSync] = useState(null);
   const store = useMemo(() => makeRecordStore(api, data => { setSnapshot(data); setLastSync(new Date()); }, setError), [api]);
+  const refreshNorthStar = async () => {
+    const data = await api.northStar();
+    setNorthStar({ template: data.template, fields: Object.fromEntries(data.fields.map(field => [field.field_key, field.value])) });
+  };
+  const northStarActions = {
+    save: async (key, value) => {
+      const row = await api.saveNorthStarField(key, value);
+      setNorthStar(current => current && ({ ...current, fields: { ...current.fields, [row.field_key]: row.value } }));
+      return row;
+    },
+    addHypothesis: async () => { const result = await api.addNorthStarHypothesis(); await refreshNorthStar(); return result; },
+    sendHypothesis: async id => { const result = await api.sendNorthStarHypothesis(id); await refreshNorthStar(); await store.refresh(); return result; },
+    history: () => api.northStarHistory(),
+  };
   useEffect(() => {
     let active = true;
     api.membership().then(member => { if (active) setRole(member?.role ?? null); }).catch(error => {
@@ -88,10 +103,12 @@ export function Workspace({ openAccess = false }) {
     if (!role) return;
     store.refresh().catch(e => setError(e.message || 'Data could not be loaded. Reload and try again.'));
     api.deliverables().then(setFiles).catch(e => setError(e.message || 'Files could not be loaded. Reload and try again.'));
+    if (!openAccess) refreshNorthStar().catch(e => setError(e.message || 'North Star could not be loaded. Reload and try again.'));
     const timer = setInterval(() => {
       if (!document.hidden) {
         store.refresh().catch(e => setError(e.message || 'Live update failed. Reload and try again.'));
         api.deliverables().then(setFiles).catch(e => setError(e.message || 'Files could not be loaded. Reload and try again.'));
+        if (!openAccess) refreshNorthStar().catch(e => setError(e.message || 'North Star live update failed. Reload and try again.'));
       }
     }, 5000);
     return () => clearInterval(timer);
@@ -116,7 +133,7 @@ export function Workspace({ openAccess = false }) {
   };
   return <>
     {error && <p className="portal-ui save-alert" role="alert">{error} <button onClick={() => setError('')}>Dismiss</button></p>}
-    <IndagoApp store={{ state, canEdit: role === 'editor', actions: store.actions, files,
+    <IndagoApp store={{ state, canEdit: role === 'editor', actions: store.actions, files, northStar, northStarActions, hideNorthStar: openAccess,
       fileActions: {
         upload: async (id, file) => { await api.uploadDeliverable(id, file); setFiles(await api.deliverables()); },
         remove: async id => { await api.removeDeliverable(id); setFiles(await api.deliverables()); },
@@ -124,6 +141,6 @@ export function Workspace({ openAccess = false }) {
       } }}
       status={<span role="status" className="portal-ui sync-status">{lastSync ? `Updated ${lastSync.toLocaleTimeString('en-GB')}` : 'Connecting…'}</span>}
       headerSlot={<><button type="button" className="btn small" onClick={showHistory}>History</button>{!openAccess && <button type="button" className="btn small" onClick={() => authClient.signOut()}>Sign out</button>}</>} />
-    {history && <aside className="portal-ui history-panel" aria-label="Change history"><button onClick={() => setHistory(null)}>Close history</button><h2>Recent changes</h2><ol>{history.map(item => <li key={`${item.kind}-${item.id}`}>{item.kind === 'file' ? `${item.action === 'uploaded' ? 'Uploaded' : 'Removed'} ${item.file_name} for ${item.work_package_id}` : changeLabel(item)}, {new Date(item.changed_at).toLocaleString('en-GB')}, {item.actor || item.actor_email || 'Unknown user'}</li>)}</ol></aside>}
+    {history && <aside className="portal-ui history-panel" aria-label="Change history"><button onClick={() => setHistory(null)}>Close history</button><h2>Recent changes</h2><ol>{history.map(item => <li key={`${item.kind}-${item.id}`}>{item.kind === 'file' ? `${item.action === 'uploaded' ? 'Uploaded' : 'Removed'} ${item.file_name} for ${item.work_package_id}` : item.kind === 'north-star' ? `North Star ${item.field_key}: ${item.old_value || 'Empty'} → ${item.new_value || 'Empty'}` : changeLabel(item)}, {new Date(item.changed_at).toLocaleString('en-GB')}, {item.actor || item.actor_email || 'Unknown user'}</li>)}</ol></aside>}
   </>;
 }
