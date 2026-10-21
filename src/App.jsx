@@ -55,7 +55,7 @@ function SignIn() {
   </main><GreatstoneFooter /></>;
 }
 
-function Workspace() {
+export function Workspace() {
   const api = useMemo(() => makeIndagoApi(), []);
   const [role, setRole] = useState(undefined);
   const [snapshot, setSnapshot] = useState(null);
@@ -65,7 +65,11 @@ function Workspace() {
   const store = useMemo(() => makeRecordStore(api, data => { setSnapshot(data); setLastSync(new Date()); }, setError), [api]);
   useEffect(() => {
     let active = true;
-    api.membership().then(member => { if (active) setRole(member?.role ?? null); }).catch(() => { if (active) setError('Access could not be checked. Reload and try again.'); });
+    api.membership().then(member => { if (active) setRole(member?.role ?? null); }).catch(error => {
+      if (!active) return;
+      if (error.status === 403) setRole(null);
+      else setError('Access could not be checked. Reload and try again.');
+    });
     return () => { active = false; };
   }, [api]);
   useEffect(() => {
