@@ -11,6 +11,42 @@ export function makeIndagoApi(fetcher = fetch) {
     async membership() { return call('membership'); },
     async snapshot() { return call('snapshot'); },
     async recentHistory() { return call('history'); },
+    async deliverables() { return call('deliverables'); },
+    async uploadDeliverable(recordId, file) {
+      if (file.size < 1 || file.size > 50 * 1024 * 1024) throw new Error('Choose a file under 50 MB.');
+      const bytes = await file.arrayBuffer();
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      const sha256 = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+      const { id, chunkSize } = await call('deliverables/init', { recordId, name: file.name, size: file.size, sha256 });
+      for (let n = 0; n < Math.ceil(file.size / chunkSize); n++) {
+        const response = await fetcher(`/api/indago/deliverables/${id}/chunk/${n}`, {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/octet-stream' },
+          body: bytes.slice(n * chunkSize, Math.min((n + 1) * chunkSize, file.size)),
+        });
+        if (!response.ok) throw new Error((await response.json()).error || 'Upload failed. Try again.');
+      }
+      await call(`deliverables/${id}/finish`, {});
+    },
+    async removeDeliverable(id) { return call(`deliverables/${id}/remove`, {}); },
+    async downloadDeliverable(file) {
+      const parts = [];
+      for (let n = 0; n < file.chunk_count; n++) {
+        const response = await fetcher(`/api/indago/deliverables/${file.id}/download/${n}`, { credentials: 'same-origin' });
+        if (!response.ok) throw new Error((await response.json()).error || 'Download failed. Try again.');
+        parts.push(await response.arrayBuffer());
+      }
+      const blob = new Blob(parts, { type: 'application/octet-stream' });
+      if (blob.size !== file.byte_size) throw new Error('Download is incomplete. Try again.');
+      const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+      const sha256 = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+      if (sha256 !== file.sha256) throw new Error('Download did not match the stored file. Contact the portal administrator.');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = file.file_name;
+      document.body.append(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    },
     async add(record) { return call('add', record); },
     async save(record, edits) { return call('save', { id: record.id, version: record.version, edits }); },
   };

@@ -66,12 +66,12 @@ after(() => {
   win.happyDOM.close();
 });
 
-function render(Screen, { canEdit = true, state = lib.demoState(), actions = {} } = {}) {
+function render(Screen, { canEdit = true, state = lib.demoState(), actions = {}, files = [], fileActions } = {}) {
   const el = document.createElement('div');
   document.body.appendChild(el);
   const calls = [];
   const spy = new Proxy(actions, { get: (t, k) => t[k] || ((...a) => calls.push([k, ...a])) });
-  const root = lib.mount(el, lib.React.createElement(Screen, { state, canEdit, actions: spy, onOpen: () => {} }));
+  const root = lib.mount(el, lib.React.createElement(Screen, { state, canEdit, actions: spy, files, fileActions, onOpen: () => {} }));
   return { el, calls, unmount: () => { root.unmount(); el.remove(); } };
 }
 
@@ -85,6 +85,21 @@ test('every screen renders text for Editor and Viewer without React warnings', (
       unmount();
     }
   }
+});
+
+test('work package shows file count, metadata and Viewer download without upload or remove', () => {
+  const files = [{ id: 'demo-1', work_package_id: '1.01', file_name: 'Invented sample.csv',
+    byte_size: 1200000, uploaded_by: 'Demo Person', uploaded_at: '2026-10-20T09:00:00Z' }];
+  const fileActions = { download: async () => {}, upload: async () => {}, remove: async () => {} };
+  const { el, unmount } = render(lib.SCREENS.WorkPlan, { canEdit: false, files, fileActions });
+  const row = el.querySelector('tbody tr:not(.group)');
+  assert.match(row.textContent, /1\.01\s*1/);
+  const details = el.querySelector('.deliverables');
+  assert.match(details.textContent, /Invented sample\.csv/);
+  assert.match(details.textContent, /Demo Person/);
+  assert.equal(details.querySelector('input[type=file]'), null);
+  assert.equal([...details.querySelectorAll('button')].map(button => button.textContent).join(','), 'Download');
+  unmount();
 });
 
 test('a Viewer gets no editable fields on any screen', () => {

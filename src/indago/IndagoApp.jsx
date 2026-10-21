@@ -53,7 +53,7 @@ const GOV = [
 // { state, canEdit, actions } — see README "Data contract".
 // `headerSlot` lets the host add sign-out, history or live-status controls.
 export default function IndagoApp({ store, headerSlot, status }) {
-  const { state, canEdit, actions } = store;
+  const { state, canEdit, actions, files = [], fileActions } = store;
   const [tab, setTab] = useState(tabFromHash);
 
   useEffect(() => {
@@ -126,7 +126,7 @@ export default function IndagoApp({ store, headerSlot, status }) {
         </nav>
 
         <main ref={panelRef} id="indago-panel" className="panel" role="tabpanel" aria-labelledby={`indago-tab-${tab}`} tabIndex={-1}>
-          <Screen state={state} canEdit={canEdit} actions={actions} onOpen={open} />
+          <Screen state={state} canEdit={canEdit} actions={actions} files={files} fileActions={fileActions} onOpen={open} />
         </main>
 
         <GreatstoneFooter />

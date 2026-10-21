@@ -13,6 +13,7 @@
     "remove:preview-users": "node scripts/remove-preview-users.mjs"
   },
   "dependencies": {
+    "@netlify/blobs": "^11.1.5",
     "@netlify/database": "^2.0.1",
     "better-auth": "^1.7.12",
     "pg": "^8.23.1",

@@ -72,6 +72,7 @@ export function Workspace({ openAccess = false }) {
   const [snapshot, setSnapshot] = useState(null);
   const [error, setError] = useState('');
   const [history, setHistory] = useState(null);
+  const [files, setFiles] = useState([]);
   const [lastSync, setLastSync] = useState(null);
   const store = useMemo(() => makeRecordStore(api, data => { setSnapshot(data); setLastSync(new Date()); }, setError), [api]);
   useEffect(() => {
@@ -86,8 +87,12 @@ export function Workspace({ openAccess = false }) {
   useEffect(() => {
     if (!role) return;
     store.refresh().catch(e => setError(e.message || 'Data could not be loaded. Reload and try again.'));
+    api.deliverables().then(setFiles).catch(e => setError(e.message || 'Files could not be loaded. Reload and try again.'));
     const timer = setInterval(() => {
-      if (!document.hidden) store.refresh().catch(e => setError(e.message || 'Live update failed. Reload and try again.'));
+      if (!document.hidden) {
+        store.refresh().catch(e => setError(e.message || 'Live update failed. Reload and try again.'));
+        api.deliverables().then(setFiles).catch(e => setError(e.message || 'Files could not be loaded. Reload and try again.'));
+      }
     }, 5000);
     return () => clearInterval(timer);
   }, [role, store]);
@@ -111,9 +116,14 @@ export function Workspace({ openAccess = false }) {
   };
   return <>
     {error && <p className="portal-ui save-alert" role="alert">{error} <button onClick={() => setError('')}>Dismiss</button></p>}
-    <IndagoApp store={{ state, canEdit: role === 'editor', actions: store.actions }}
+    <IndagoApp store={{ state, canEdit: role === 'editor', actions: store.actions, files,
+      fileActions: {
+        upload: async (id, file) => { await api.uploadDeliverable(id, file); setFiles(await api.deliverables()); },
+        remove: async id => { await api.removeDeliverable(id); setFiles(await api.deliverables()); },
+        download: file => api.downloadDeliverable(file),
+      } }}
       status={<span role="status" className="portal-ui sync-status">{lastSync ? `Updated ${lastSync.toLocaleTimeString('en-GB')}` : 'Connecting…'}</span>}
       headerSlot={<><button type="button" className="btn small" onClick={showHistory}>History</button>{!openAccess && <button type="button" className="btn small" onClick={() => authClient.signOut()}>Sign out</button>}</>} />
-    {history && <aside className="portal-ui history-panel" aria-label="Change history"><button onClick={() => setHistory(null)}>Close history</button><h2>Recent changes</h2><ol>{history.map(item => <li key={item.id}>{changeLabel(item)}, {new Date(item.changed_at).toLocaleString('en-GB')}, {item.actor_email || 'Unknown user'}</li>)}</ol></aside>}
+    {history && <aside className="portal-ui history-panel" aria-label="Change history"><button onClick={() => setHistory(null)}>Close history</button><h2>Recent changes</h2><ol>{history.map(item => <li key={`${item.kind}-${item.id}`}>{item.kind === 'file' ? `${item.action === 'uploaded' ? 'Uploaded' : 'Removed'} ${item.file_name} for ${item.work_package_id}` : changeLabel(item)}, {new Date(item.changed_at).toLocaleString('en-GB')}, {item.actor || item.actor_email || 'Unknown user'}</li>)}</ol></aside>}
   </>;
 }

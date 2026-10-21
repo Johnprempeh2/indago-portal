@@ -19,7 +19,14 @@ export async function handlePortalRequest(request, client, role, route, openAcce
     if (request.method === 'GET' && route === 'history') {
       const history = await client.query(`SELECT id, record_id, actor_email, changed_at,
         before_edits, after_edits, version FROM indago.history ORDER BY id DESC LIMIT 50`);
-      return json(history.rows);
+      const files = await client.query(`SELECT h.id, d.record_id, r.source_values->>0 AS work_package_id,
+        d.file_name, h.action, h.actor, h.changed_at
+        FROM indago.deliverable_history h JOIN indago.deliverables d ON d.id = h.deliverable_id
+        JOIN indago.records r ON r.id = d.record_id
+        ORDER BY h.id DESC LIMIT 50`);
+      return json([...history.rows.map(row => ({ ...row, kind: 'record' })),
+        ...files.rows.map(row => ({ ...row, kind: 'file' }))]
+        .sort((a, b) => new Date(b.changed_at) - new Date(a.changed_at)).slice(0, 50));
     }
     if (request.method !== 'POST' || !['save', 'add'].includes(route)) return json({ error: 'Not found.' }, 404);
     if (role !== 'editor') return json({ error: 'Editor invitation required.' }, 403);
