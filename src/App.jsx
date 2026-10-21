@@ -15,10 +15,10 @@ export default function App() {
       .catch(error => { if (active) setOpenAccess([401, 403].includes(error.status) ? false : 'error'); });
     return () => { active = false; };
   }, []);
-  if (openAccess === 'error') return <main className="state" role="alert">Access could not be checked. Reload and try again.</main>;
-  if (openAccess === null) return <main className="state" aria-busy="true">Checking access…</main>;
+  if (openAccess === 'error') return <main className="portal-ui state" role="alert">Access could not be checked. Reload and try again.</main>;
+  if (openAccess === null) return <main className="portal-ui state" aria-busy="true">Checking access…</main>;
   if (openAccess) return <Workspace key="open-access" openAccess />;
-  if (isPending) return <main className="state" aria-busy="true">Checking access…</main>;
+  if (isPending) return <main className="portal-ui state" aria-busy="true">Checking access…</main>;
   if (!session) return <SignIn />;
   return <Workspace key={session.user.id} />;
 }
@@ -50,7 +50,7 @@ function SignIn() {
     setPreviewPassword('');
     setMessage(error ? 'Preview sign-in failed. Check the password and try again.' : 'Signed in.');
   }
-  return <><main className="state">
+  return <><main className="portal-ui state">
     <p className="eyebrow">Greatstone International</p><h1>Indago project portal</h1>
     <p>Sign in with the email address invited to this workspace.</p>
     <form onSubmit={submit}><label htmlFor="email">Email address</label><input id="email" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} /><button>Send sign-in link</button></form>
@@ -95,12 +95,12 @@ export function Workspace({ openAccess = false }) {
     if (history) { setHistory(null); return; }
     try { setHistory(await api.recentHistory()); } catch (e) { setError(e.message || 'History could not be loaded.'); }
   };
-  if (error && role === undefined) return <main className="state" role="alert">{error}</main>;
-  if (role === undefined) return <main className="state" aria-busy="true">Checking invitation…</main>;
-  if (!role) return <main className="state"><h1>No Indago invitation</h1><p>This account is signed in, but is not invited to this workspace.</p><button onClick={() => authClient.signOut()}>Sign out</button></main>;
-  if (!snapshot) return <main className="state" aria-busy="true">Loading shared records…</main>;
+  if (error && role === undefined) return <main className="portal-ui state" role="alert">{error}</main>;
+  if (role === undefined) return <main className="portal-ui state" aria-busy="true">Checking invitation…</main>;
+  if (!role) return <main className="portal-ui state"><h1>No Indago invitation</h1><p>This account is signed in, but is not invited to this workspace.</p><button onClick={() => authClient.signOut()}>Sign out</button></main>;
+  if (!snapshot) return <main className="portal-ui state" aria-busy="true">Loading shared records…</main>;
   const state = recordsToState(snapshot);
-  if (!state.toolkit) return <main className="state" role="alert">The approved toolkit data is missing. Ask the portal administrator to complete the private source import.</main>;
+  if (!state.toolkit) return <main className="portal-ui state" role="alert">The approved toolkit data is missing. Ask the portal administrator to complete the private source import.</main>;
   const changeLabel = item => {
     const record = snapshot.records.find(row => row.id === item.record_id);
     const sheet = snapshot.sheets.find(row => row.id === record?.sheet_id);
@@ -110,10 +110,10 @@ export function Workspace({ openAccess = false }) {
     return `${sheet?.title || 'Record'} ${record?.source_values[0] || item.record_id}: ${fields.length ? fields.join(', ') : 'new row'}`;
   };
   return <>
-    {error && <p className="save-alert" role="alert">{error} <button onClick={() => setError('')}>Dismiss</button></p>}
+    {error && <p className="portal-ui save-alert" role="alert">{error} <button onClick={() => setError('')}>Dismiss</button></p>}
     <IndagoApp store={{ state, canEdit: role === 'editor', actions: store.actions }}
-      status={<span role="status" className="sync-status">{lastSync ? `Updated ${lastSync.toLocaleTimeString('en-GB')}` : 'Connecting…'}</span>}
+      status={<span role="status" className="portal-ui sync-status">{lastSync ? `Updated ${lastSync.toLocaleTimeString('en-GB')}` : 'Connecting…'}</span>}
       headerSlot={<><button type="button" className="btn small" onClick={showHistory}>History</button>{!openAccess && <button type="button" className="btn small" onClick={() => authClient.signOut()}>Sign out</button>}</>} />
-    {history && <aside className="history-panel" aria-label="Change history"><button onClick={() => setHistory(null)}>Close history</button><h2>Recent changes</h2><ol>{history.map(item => <li key={item.id}>{changeLabel(item)}, {new Date(item.changed_at).toLocaleString('en-GB')}, {item.actor_email || 'Unknown user'}</li>)}</ol></aside>}
+    {history && <aside className="portal-ui history-panel" aria-label="Change history"><button onClick={() => setHistory(null)}>Close history</button><h2>Recent changes</h2><ol>{history.map(item => <li key={item.id}>{changeLabel(item)}, {new Date(item.changed_at).toLocaleString('en-GB')}, {item.actor_email || 'Unknown user'}</li>)}</ol></aside>}
   </>;
 }
