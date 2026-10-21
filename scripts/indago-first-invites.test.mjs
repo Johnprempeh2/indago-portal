@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handleFirstInvites } from './indago-first-invites.mjs';
+import { handleFirstInvites } from '../netlify/functions/indago-first-invites.mjs';
 
 const env = {
   INDAGO_FIRST_INVITES_ENABLED: '1',
