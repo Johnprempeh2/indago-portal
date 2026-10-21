@@ -26,7 +26,7 @@ test('save requires a version and writes only the edit overlay', async () => {
   const input = { id: 'r1', version: 1, edits: { 2: 'Done' }, source_values: ['changed'] };
   const response = await handlePortalRequest(request('POST', input), client, 'editor', 'save');
   assert.equal(response.status, 200);
-  assert.deepEqual(queries[0][1], [input.edits, 'r1', 1]);
+  assert.deepEqual(queries[0][1], [input.edits, 'r1', 1, false]);
   assert.match(queries[0][0], /WHERE id = \$2 AND version = \$3/);
 });
 
@@ -42,4 +42,14 @@ test('malformed add data is rejected before SQL', async () => {
     id: 'r1', sheet_id: 'risk', position: 1, source_values: ['safe', { unsafe: true }],
   }), client, 'editor', 'add');
   assert.equal(response.status, 400);
+});
+
+test('open access cannot read or add internal North Star material', async () => {
+  const client = { query() { throw Error('database should not be reached'); } };
+  const hidden = await handlePortalRequest(request('GET'), client, 'editor', 'north-star', true);
+  const add = await handlePortalRequest(request('POST', {
+    id: 'north-star-requests:1', sheet_id: 'north-star-requests', position: 1, source_values: [],
+  }), client, 'editor', 'add', true);
+  assert.equal(hidden.status, 403);
+  assert.equal(add.status, 403);
 });

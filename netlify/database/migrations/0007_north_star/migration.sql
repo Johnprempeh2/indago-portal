@@ -1,0 +1,105 @@
+-- NS-01 is an internal facilitator instrument. Template content is seeded below.
+CREATE TABLE indago.north_star_template (
+  id text PRIMARY KEY,
+  content jsonb NOT NULL CHECK (jsonb_typeof(content) = 'object')
+);
+INSERT INTO indago.north_star_template(id, content) VALUES ('IND-NS-001', $ns01${"id":"IND-NS-001","edition":"NS-01 | Greatstone internal facilitator edition | v1.0 | 21 October 2026","purpose":"Purpose: provoke a bigger yet owned and testable strategic ambition; convert it into an approved North Star Record, strategic hypotheses and a directed evidence plan for the GDXP™.","guardrails":["This is a discovery and strategic challenge, not a sales presentation for a unified portal or AI product. Gordon owns the North Star; Greatstone tests and stretches it.","Do not confuse what Indago wants with what is already true. Mark aspirations, source statements, hypotheses and independently verified facts separately.","Explore unconstrained possibility first, then return to evidence, economics, rights, organisational capability and realistic sequencing.","No scoring questionnaire. Use live dialogue, follow-up questions, concrete examples and documented decisions.","Record Gordon’s actual words before drafting Greatstone interpretations. Obtain explicit confirmation of the final wording and record dissent or uncertainty."],"baseline":[{"id":"IND-EV-009","proposition":"IND-EV-009: technology to make delivery seamless, add client value, differentiate and reduce effort","treatment":"Confirm whether still accurate; ask what success actually looks like."},{"id":"IND-EV-012","proposition":"IND-EV-012: ambition to become an “anything data” business / African market intelligence hub","treatment":"Explore the market and competitive meaning; do not treat as approved direction."},{"id":"IND-EV-018","proposition":"IND-EV-018: one portal per client and digital front door","treatment":"Treat as a candidate capability, not the North Star."},{"id":"IND-EV-011","proposition":"IND-EV-011: 10–20 institutions at roughly US$100k annually","treatment":"Confirm currency, timeframe, appetite and commercial basis; currently unverified."},{"id":"IND-EV-014/082","proposition":"IND-EV-014 and 082: subscription benchmark and pooled data","treatment":"Test demand, differentiation and contractual/data rights before endorsement."},{"id":"IND-EV-005","proposition":"IND-EV-005: automated AI calling excluded from current scope","treatment":"Preserve current scope boundary; future feasibility may be explored separately."},{"id":"IND-EV-116","proposition":"IND-EV-116: published vision of foremost value-adding consumer insights in Africa","treatment":"Ask how published vision relates to the proposed future North Star."}],"baselineNote":"Source note: IDs are from the client-facing evidence register embedded in the project portal. All are pending Indago confirmation. These are prompts, not approved facts.","runOfShow":[{"time":"0–10","move":"Set purpose; Gordon states current North Star without prompting","outcome":"Verbatim baseline, non-negotiables"},{"time":"10–25","move":"Challenge the business definition and customer outcome","outcome":"Potential redefinition of purpose"},{"time":"25–40","move":"Stretch ambition and market boundary","outcome":"Three distinct futures"},{"time":"40–55","move":"Challenge business model and defensibility","outcome":"Revenue and differentiation hypotheses"},{"time":"55–70","move":"Test what must remain human and what technology enables","outcome":"Operating principles and constraints"},{"time":"70–82","move":"Converge on North Star wording and 3–5 outcomes","outcome":"Candidate North Star and KPIs"},{"time":"82–90","move":"Confirm assumptions, evidence needs and approval route","outcome":"Decisions, owners, follow-up"}],"questions":[{"heading":"A. What business are we really in?","items":["If Indago ceased conducting surveys tomorrow, what indispensable value would customers still pay you to deliver?  Press for the decision enabled, not the report produced.","Do customers buy research, or do they buy confidence to make better decisions? What evidence distinguishes the two?","If a new competitor offered the same research at half your price, why would your best client stay?","What would Indago stop doing if its true purpose were to improve client decisions rather than deliver projects?"]},{"heading":"B. A future beyond the present company","items":["Imagine Indago has succeeded spectacularly in 2031. What is it famous for that it cannot do today?","Would you rather serve 20 institutions at exceptional value or 2,000 customers digitally? Why?","What would an African CEO, bank board or brand leader be able to do with Indago every Monday morning?","What would make Indago essential between research projects, rather than only when a survey is commissioned?","Which markets would you enter if geography were no longer constrained by your current operating model?"]},{"heading":"C. Challenge the economics and competitive advantage","items":["What is the most valuable insight you generate that you currently give away within a fixed project fee?","Could revenue grow threefold without headcount growing threefold? What would have to be fundamentally different?","What must Indago uniquely own: methodology, trusted relationships, datasets, benchmarks, distribution or decision workflows?","If customers can build dashboards and generate AI summaries themselves, what remains uniquely valuable about Indago?","Would you prefer project revenue, recurring subscriptions, advisory retainers, licensing or a hybrid? What evidence would change your mind?"]},{"heading":"D. Challenge the client experience and product boundary","items":["If a customer could configure and buy a research service without speaking to anyone, would that strengthen or weaken Indago?","Which client decisions require expert interpretation and which could safely become self-service?","Could an ongoing intelligence relationship replace periodic static reporting? What must be true for that to work?","What should a client be able to know today that they currently learn six weeks too late?"]},{"heading":"E. Challenge technology, AI and human advantage","items":["If 80% of repetitive data processing disappeared, where should your people spend their newly available capacity?","Which parts of research must never be delegated entirely to AI because trust, methodology or judgement would suffer?","If a unified portal never existed, could you still achieve the North Star? If yes, what is truly essential?","Which AI use case would you reject even if technically possible, and why?"]},{"heading":"F. Challenge the courage and trade-offs","items":["What is the biggest strategic bet you have avoided because the current business must keep running?","What would you deliberately NOT pursue, even if it could generate revenue?","What would you be willing to invest, change or give up to achieve this ambition?","If we recommend against the portal you originally envisaged, what evidence would make you accept that conclusion?"]}],"futures":[{"name":"A — Research excellence","provocation":"Indago becomes the most efficient and trusted premium research provider in its chosen markets.","evidence":"Process economics, quality, pricing power, renewal evidence."},{"name":"B — Continuous intelligence partner","provocation":"Indago provides recurring decision intelligence and measurable client outcomes.","evidence":"Demand, willingness to pay, delivery cadence, data rights, retention."},{"name":"C — Scalable intelligence platform","provocation":"Indago develops a defensible digital intelligence product and service ecosystem.","evidence":"Market sizing, distribution, rights, architecture, investment and adoption."}],"futuresAsk":"Ask: Which future excites you? Which creates durable value? Which is most plausible? Could the best North Star combine elements? Do not choose an implementation architecture in this session.","sentenceAid":"Use this sentence structure only as a drafting aid: “By [horizon], Indago will be [strategic identity] for [customer/market], enabling [valuable customer outcome] through [distinctive advantage], while achieving [measurable business outcomes], without compromising [principles].”","dimensions":["Customer outcome","Recurring revenue mix","Revenue / contribution","Service delivery speed","Quality and research integrity","Market reach","Client retention / concentration","People capacity / productivity"],"boundary":["Which customers and sectors are priority?","Which services remain core?","What remains expert-led?","What is the appetite for investment and risk?","What data can legally and ethically be reused?","Which activities must not be automated?","Which North Star dimensions are stretch hypotheses?"],"convergence":["Is the statement about a business outcome, rather than an app, dashboard or AI capability?","Would customers recognise and value the proposed difference?","Does it go materially beyond today while remaining capable of staged delivery?","Is there a credible route to commercial sustainability?","Are 3–5 measurable outcomes, owners and horizons defined?","Are critical assumptions explicitly labelled for Deep Dive validation?","Has Gordon explicitly accepted the wording, or is it only a Greatstone proposal?"],"hypotheses":["NS-H-01","NS-H-02","NS-H-03","NS-H-04","NS-H-05","NS-H-06"],"recommendedRequests":["actual client decision use cases","revenue by service/client","retention and pricing","sample project economics","contract/data-reuse rights","buyer appetite for recurring intelligence","existing delivery bottlenecks","investment and governance constraints"],"important":"Important: An approved strategic ambition is not approval of a particular technology design, investment or implementation. Those choices depend on the subsequent Deep Dive evidence and GDXP™ recommendations."}$ns01$::jsonb);
+
+ALTER TABLE indago.north_star_template ENABLE ROW LEVEL SECURITY;
+CREATE POLICY member_reads_north_star_template ON indago.north_star_template
+  FOR SELECT TO indago_app USING (indago.is_member());
+GRANT SELECT ON indago.north_star_template TO indago_app;
+
+CREATE TABLE indago.north_star_fields (
+  record_id text NOT NULL REFERENCES indago.north_star_template(id),
+  field_key text NOT NULL CHECK (field_key ~ '^[a-zA-Z0-9.:-]+$'),
+  value text NOT NULL DEFAULT '' CHECK (length(value) <= 20000),
+  version integer NOT NULL DEFAULT 1,
+  changed_by text,
+  changed_at timestamptz,
+  PRIMARY KEY (record_id, field_key)
+);
+ALTER TABLE indago.north_star_fields ENABLE ROW LEVEL SECURITY;
+CREATE POLICY member_reads_north_star_fields ON indago.north_star_fields
+  FOR SELECT TO indago_app USING (indago.is_member());
+CREATE POLICY editor_inserts_north_star_fields ON indago.north_star_fields
+  FOR INSERT TO indago_app WITH CHECK (indago.can_edit());
+CREATE POLICY editor_updates_north_star_fields ON indago.north_star_fields
+  FOR UPDATE TO indago_app USING (indago.can_edit()) WITH CHECK (indago.can_edit());
+GRANT SELECT, INSERT(record_id, field_key, value), UPDATE(value) ON indago.north_star_fields TO indago_app;
+
+INSERT INTO indago.north_star_fields(record_id, field_key, value) VALUES ('IND-NS-001', 'approval.status', 'Draft');
+INSERT INTO indago.north_star_fields(record_id, field_key, value)
+  SELECT 'IND-NS-001', 'baseline.' || n || '.status', 'Still unverified' FROM generate_series(0, 6) AS n;
+INSERT INTO indago.north_star_fields(record_id, field_key, value)
+  SELECT 'IND-NS-001', 'dimension.' || n || '.verified', 'Unknown' FROM generate_series(0, 7) AS n;
+
+CREATE TABLE indago.north_star_history (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  record_id text NOT NULL,
+  field_key text NOT NULL,
+  old_value text,
+  new_value text NOT NULL,
+  version integer NOT NULL,
+  actor text NOT NULL,
+  changed_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX north_star_history_field ON indago.north_star_history(record_id, field_key, id DESC);
+ALTER TABLE indago.north_star_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY member_reads_north_star_history ON indago.north_star_history
+  FOR SELECT TO indago_app USING (indago.is_member());
+GRANT SELECT ON indago.north_star_history TO indago_app;
+
+CREATE FUNCTION indago.audit_north_star_field() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+  SET search_path = '' AS $$
+DECLARE actor_label text;
+BEGIN
+  IF NOT indago.can_edit() THEN
+    RAISE EXCEPTION 'editor invitation required' USING errcode = '42501';
+  END IF;
+  IF TG_OP = 'UPDATE' THEN
+    IF (new.record_id, new.field_key) IS DISTINCT FROM (old.record_id, old.field_key) THEN
+      RAISE EXCEPTION 'field identity is immutable' USING errcode = '23514';
+    END IF;
+    IF new.value IS NOT DISTINCT FROM old.value THEN RETURN old; END IF;
+    new.version := old.version + 1;
+  END IF;
+  IF new.field_key = 'approval.status' AND new.value IN ('Approved', 'Approved with exceptions') AND
+     NOT EXISTS (SELECT 1 FROM indago.north_star_fields f WHERE f.record_id = new.record_id
+       AND f.field_key = 'convergence.6.answer' AND f.value = 'Yes') THEN
+    RAISE EXCEPTION 'Gordon acceptance must be Yes' USING errcode = '23514';
+  END IF;
+  IF new.field_key = 'convergence.6.answer' AND new.value <> 'Yes' AND
+     EXISTS (SELECT 1 FROM indago.north_star_fields f WHERE f.record_id = new.record_id
+       AND f.field_key = 'approval.status' AND f.value IN ('Approved', 'Approved with exceptions')) THEN
+    RAISE EXCEPTION 'reopen record before changing Gordon acceptance' USING errcode = '23514';
+  END IF;
+  IF current_setting('indago.open_access', true) = 'on' THEN
+    actor_label := 'Open access';
+  ELSE
+    SELECT email INTO actor_label FROM indago.members
+      WHERE user_id = nullif(current_setting('indago.user_id', true), '');
+  END IF;
+  new.changed_by := actor_label;
+  new.changed_at := now();
+  INSERT INTO indago.north_star_history(record_id, field_key, old_value, new_value, version, actor)
+    VALUES (new.record_id, new.field_key, CASE WHEN TG_OP = 'UPDATE' THEN old.value ELSE NULL END,
+      new.value, new.version, coalesce(actor_label, 'Unknown editor'));
+  RETURN new;
+END $$;
+CREATE TRIGGER audit_north_star_field BEFORE INSERT OR UPDATE ON indago.north_star_fields
+  FOR EACH ROW EXECUTE FUNCTION indago.audit_north_star_field();
+
+-- NS-01 v1.0 template seed follows; generated from the approved attachment.
+INSERT INTO indago.sheets(id, title, source_name, columns, locked_columns, position)
+  SELECT 'north-star-requests', 'North Star Requests', 'NS-01',
+    '["ID","Hypothesis ID","Evidence required","Owner","Due","GDXP linkage","North Star record"]'::jsonb,
+    '[0,1,6]'::jsonb, coalesce(max(position), 0) + 1 FROM indago.sheets;
+DROP POLICY editors_insert_project_rows ON indago.records;
+CREATE POLICY editors_insert_project_rows ON indago.records FOR INSERT TO indago_app
+  WITH CHECK (indago.can_edit() AND sheet_id IN (
+    SELECT id FROM indago.sheets WHERE title IN
+    ('Risks & Issues', 'New Deep Dive Evidence', 'Service Processes', 'Commercial Baseline',
+     'Findings', 'Opportunities', 'Decisions', 'GDXP Traceability', 'Validation Log',
+     'North Star Requests')
+  ));
