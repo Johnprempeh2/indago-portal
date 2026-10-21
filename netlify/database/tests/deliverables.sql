@@ -3,7 +3,8 @@ INSERT INTO indago.members(email, user_id, role) VALUES
   ('editor@example.test', 'editor-1', 'editor'),
   ('viewer@example.test', 'viewer-1', 'viewer');
 INSERT INTO indago.sheets(id, title, source_name, columns, locked_columns, position)
-  VALUES ('plan', 'Work Breakdown', 'test', '["WBS"]', '[]', 1);
+  SELECT 'plan', 'Work Breakdown', 'test', '["WBS"]', '[]',
+    coalesce(max(position), 0) + 1 FROM indago.sheets;
 INSERT INTO indago.records(id, sheet_id, position, source_values)
   VALUES ('plan:1', 'plan', 1, '["1.01"]');
 SET LOCAL ROLE indago_app;
