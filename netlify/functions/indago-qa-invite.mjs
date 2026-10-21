@@ -1,4 +1,5 @@
-import { timingSafeEqual } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { captureQaLinks } from './lib/qa-links.mjs';
 
 const host = 'indago.greatstoneint.com';
 const qaRiskId = 'qa:cross-user-risk';
@@ -15,24 +16,34 @@ function allowed(request, env) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-function invitees(env) {
-  const editor = env.INDAGO_QA_EDITOR_EMAIL?.trim().toLowerCase();
-  const viewer = env.INDAGO_QA_VIEWER_EMAIL?.trim().toLowerCase();
-  const uninvited = env.INDAGO_QA_UNINVITED_EMAIL?.trim().toLowerCase();
-  const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (![editor, viewer, uninvited].every(value => email.test(value || '')) ||
-      new Set([editor, viewer, uninvited]).size !== 3) return null;
-  return [{ email: editor, role: 'editor' }, { email: viewer, role: 'viewer' },
-    { email: uninvited, role: 'viewer' }];
+const users = Object.freeze([
+  { email: 'editor@indago-test.invalid', role: 'editor' },
+  { email: 'viewer@indago-test.invalid', role: 'viewer' },
+  { email: 'uninvited@indago-test.invalid', role: null },
+]);
+
+async function issueLinks(env) {
+  const { auth } = await import('./lib/auth.mjs');
+  const base = env.BETTER_AUTH_URL;
+  if (!base?.startsWith('https://')) throw new Error('Auth URL is missing');
+  const { links } = await captureQaLinks(async () => {
+    for (const user of users) {
+      const response = await auth.handler(new Request(new URL('/api/auth/sign-in/magic-link', base), {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Origin: base },
+        body: JSON.stringify({ email: user.email, callbackURL: '/portal/indago' }),
+      }));
+      if (!response.ok) throw new Error('QA link creation failed');
+    }
+  });
+  if (links.size !== users.length) throw new Error('QA links are incomplete');
+  return Object.fromEntries(links);
 }
 
 export async function handleQaInvite(request, env = process.env, load = async () => {
   const { db } = await import('./lib/db.mjs');
   return db;
-}) {
+}, links = issueLinks) {
   if (!allowed(request, env)) return new Response(null, { status: 404 });
-  const users = invitees(env);
-  if (!users) return Response.json({ error: 'Invite configuration is incomplete.' }, { status: 503 });
   let action;
   try {
     const raw = await request.text();
@@ -41,7 +52,7 @@ export async function handleQaInvite(request, env = process.env, load = async ()
   } catch {
     return Response.json({ error: 'Invalid request.' }, { status: 400 });
   }
-  if (!['invite', 'revoke-uninvited', 'seed-risk', 'remove-risk'].includes(action)) {
+  if (!['invite', 'links', 'remove-users', 'seed-risk', 'remove-risk'].includes(action)) {
     return Response.json({ error: 'Invalid request.' }, { status: 400 });
   }
 
@@ -77,34 +88,60 @@ export async function handleQaInvite(request, env = process.env, load = async ()
       }
       await client.query('DELETE FROM indago.history WHERE record_id = $1', [qaRiskId]);
       await client.query('DELETE FROM indago.records WHERE id = $1', [qaRiskId]);
-    } else {
-      const existing = await client.query(
-        'SELECT email, role FROM indago.members WHERE email = ANY($1::text[]) FOR UPDATE',
+    } else if (action === 'invite' || action === 'remove-users') {
+      const members = await client.query(
+        'SELECT email, role, user_id FROM indago.members WHERE email = ANY($1::text[]) FOR UPDATE',
         [users.map(user => user.email)],
       );
-      if (action === 'invite' && existing.rows.length) {
+      const accounts = await client.query(
+        'SELECT id, email FROM "user" WHERE email = ANY($1::text[]) FOR UPDATE',
+        [users.map(user => user.email)],
+      );
+      if (action === 'invite' && (members.rows.length || accounts.rows.length)) {
         await client.query('ROLLBACK');
-        return Response.json({ error: 'Test invite already exists.' }, { status: 409 });
+        return Response.json({ error: 'Test identity already exists.' }, { status: 409 });
       }
-      if (action === 'revoke-uninvited') {
-        const row = existing.rows.find(item => item.email === users[2].email);
-        if (!row || row.role !== 'viewer') {
+      if (action === 'remove-users') {
+        if (members.rows.length !== 2 || accounts.rows.length !== 3 ||
+            members.rows.some(row => !users.slice(0, 2).some(user =>
+              user.email === row.email && user.role === row.role && row.user_id ===
+              accounts.rows.find(account => account.email === row.email)?.id))) {
           await client.query('ROLLBACK');
-          return Response.json({ error: 'Test account is not ready.' }, { status: 409 });
+          return Response.json({ error: 'Test identities do not match.' }, { status: 409 });
         }
-        await client.query('DELETE FROM indago.members WHERE email = $1 AND role = $2',
-          [users[2].email, 'viewer']);
+        await client.query('DELETE FROM indago.members WHERE email = ANY($1::text[])',
+          [users.slice(0, 2).map(user => user.email)]);
+        await client.query('DELETE FROM "user" WHERE email = ANY($1::text[])',
+          [users.map(user => user.email)]);
       } else {
         for (const user of users) {
-          await client.query('INSERT INTO indago.members(email, role) VALUES ($1, $2)',
-            [user.email, user.role]);
+          const id = randomUUID();
+          await client.query('INSERT INTO "user"(id, name, email, "emailVerified") VALUES ($1, $2, $3, true)',
+            [id, `QA ${user.role || 'uninvited'}`, user.email]);
+          if (user.role) await client.query('INSERT INTO indago.members(email, role, user_id) VALUES ($1, $2, $3)',
+            [user.email, user.role, id]);
         }
+      }
+    } else if (action === 'links') {
+      const accounts = await client.query('SELECT email FROM "user" WHERE email = ANY($1::text[])',
+        [users.map(user => user.email)]);
+      const members = await client.query('SELECT email, role FROM indago.members WHERE email = ANY($1::text[])',
+        [users.map(user => user.email)]);
+      if (accounts.rows.length !== 3 || members.rows.length !== 2 ||
+          members.rows.some(row => !users.slice(0, 2).some(user =>
+            user.email === row.email && user.role === row.role))) {
+        await client.query('ROLLBACK');
+        return Response.json({ error: 'Test identities are not ready.' }, { status: 409 });
       }
     }
     await client.query('COMMIT');
+    if (action === 'links') {
+      const result = await links(env);
+      return Response.json({ links: result }, { headers: { 'Cache-Control': 'no-store' } });
+    }
     return Response.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch { /* Transaction already closed. */ }
     return Response.json({ error: 'Invitation failed.' }, { status: 500 });
   } finally {
     client.release();

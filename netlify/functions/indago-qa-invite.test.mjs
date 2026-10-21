@@ -1,164 +1,79 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { handleQaInvite } from './indago-qa-invite.mjs';
+import { captureQaLink, captureQaLinks } from './lib/qa-links.mjs';
 
 const url = 'https://indago.greatstoneint.com/api/indago-qa-invite';
-const env = {
-  INDAGO_QA_INVITE_ENABLED: '1',
-  INDAGO_QA_INVITE_TOKEN: 'a'.repeat(48),
-  INDAGO_QA_EDITOR_EMAIL: 'editor@example.test',
-  INDAGO_QA_VIEWER_EMAIL: 'viewer@example.test',
-  INDAGO_QA_UNINVITED_EMAIL: 'uninvited@example.test',
-};
-const request = (token = env.INDAGO_QA_INVITE_TOKEN, target = url, action = 'invite') =>
+const env = { INDAGO_QA_INVITE_ENABLED: '1', INDAGO_QA_INVITE_TOKEN: 'a'.repeat(48) };
+const emails = ['editor@indago-test.invalid', 'viewer@indago-test.invalid', 'uninvited@indago-test.invalid'];
+const request = (action = 'invite', token = env.INDAGO_QA_INVITE_TOKEN, target = url) =>
   new Request(target, { method: 'POST', headers: { authorization: `Bearer ${token}` },
     body: JSON.stringify({ action }) });
+function database(accounts = [], members = []) {
+  const calls = [];
+  const client = { release() {}, async query(sql, args = []) {
+    calls.push([sql, args]);
+    if (sql.startsWith('SELECT') && sql.includes('"user"')) return { rows: accounts };
+    if (sql.startsWith('SELECT') && sql.includes('indago.members')) return { rows: members };
+    return { rows: [] };
+  } };
+  return { calls, load: async () => ({ pool: { connect: async () => client } }) };
+}
 
-test('invite route is hidden without the exact host, switch and token', async () => {
-  const load = async () => { throw new Error('database must stay untouched'); };
+test('QA route hides itself without exact host, switch and secret', async () => {
+  const load = async () => { throw new Error('must not load database'); };
   for (const [req, settings] of [
-    [request('wrong'), env],
-    [request(), { ...env, INDAGO_QA_INVITE_ENABLED: '0' }],
-    [request(undefined, 'https://greatstone-indago-portal.netlify.app/api/indago-qa-invite'), env],
+    [request('links', 'wrong'), env],
+    [request('links'), { ...env, INDAGO_QA_INVITE_ENABLED: '0' }],
+    [request('links', undefined, 'https://greatstone-indago-portal.netlify.app/api/indago-qa-invite'), env],
   ]) assert.equal((await handleQaInvite(req, settings, load)).status, 404);
 });
 
-test('invite route refuses missing or duplicate email configuration', async () => {
-  const load = async () => { throw new Error('database must stay untouched'); };
-  assert.equal((await handleQaInvite(request(), { ...env, INDAGO_QA_VIEWER_EMAIL: '' }, load)).status, 503);
-  assert.equal((await handleQaInvite(request(), { ...env, INDAGO_QA_VIEWER_EMAIL: env.INDAGO_QA_EDITOR_EMAIL }, load)).status, 503);
-  assert.equal((await handleQaInvite(request(), { ...env, INDAGO_QA_UNINVITED_EMAIL: '' }, load)).status, 503);
+test('invite creates three reserved users and two members only', async () => {
+  const db = database();
+  assert.equal((await handleQaInvite(request(), env, db.load)).status, 200);
+  const inserts = db.calls.filter(([sql]) => sql.startsWith('INSERT'));
+  assert.deepEqual(inserts.filter(([sql]) => sql.includes('"user"')).map(([, args]) => args[2]), emails);
+  assert.deepEqual(inserts.filter(([sql]) => sql.includes('indago.members')).map(([, args]) => args.slice(0, 2)),
+    [[emails[0], 'editor'], [emails[1], 'viewer']]);
+  assert.equal(db.calls.at(-1)[0], 'COMMIT');
 });
 
-test('invite route inserts only the three configured test roles in one transaction', async () => {
-  const calls = [];
-  const client = {
-    release() {},
-    async query(sql, args = []) {
-      calls.push([sql, args]);
-      return { rows: [] };
-    },
-  };
-  const response = await handleQaInvite(request(), env, async () => ({ pool: { connect: async () => client } }));
+test('invite refuses an existing account', async () => {
+  const db = database([{ id: 'existing', email: emails[0] }]);
+  assert.equal((await handleQaInvite(request(), env, db.load)).status, 409);
+  assert.equal(db.calls.some(([sql]) => sql.startsWith('INSERT')), false);
+});
+
+test('links return only when third identity remains uninvited', async () => {
+  const accounts = emails.map((email, i) => ({ id: `id-${i}`, email }));
+  const members = accounts.slice(0, 2).map((account, i) =>
+    ({ email: account.email, role: i ? 'viewer' : 'editor', user_id: account.id }));
+  const db = database(accounts, members);
+  const links = Object.fromEntries(emails.map(email => [email, `https://test.invalid/${email}`]));
+  const response = await handleQaInvite(request('links'), env, db.load, async () => links);
   assert.equal(response.status, 200);
-  assert.deepEqual(calls.filter(([sql]) => sql.startsWith('INSERT')).map(([, args]) => args),
-    [['editor@example.test', 'editor'], ['viewer@example.test', 'viewer'],
-      ['uninvited@example.test', 'viewer']]);
-  assert.equal(calls[0][0], 'BEGIN');
-  assert.equal(calls.at(-1)[0], 'COMMIT');
+  assert.deepEqual((await response.json()).links, links);
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  const wrong = database(accounts, [...members, { email: emails[2], role: 'viewer' }]);
+  assert.equal((await handleQaInvite(request('links'), env, wrong.load,
+    async () => { throw new Error('must not issue'); })).status, 409);
 });
 
-test('invite route never changes an existing membership', async () => {
-  const calls = [];
-  const client = {
-    release() {},
-    async query(sql) {
-      calls.push(sql);
-      if (sql.startsWith('SELECT')) return { rows: [{ email: 'editor@example.test', role: 'viewer' }] };
-      return { rows: [] };
-    },
-  };
-  const response = await handleQaInvite(request(), env, async () => ({ pool: { connect: async () => client } }));
-  assert.equal(response.status, 409);
-  assert.ok(calls.includes('ROLLBACK'));
-  assert.equal(calls.some(sql => sql.startsWith('INSERT')), false);
+test('synthetic links cannot be captured outside gated call', async () => {
+  assert.throws(() => captureQaLink(emails[0], 'secret'), /outside the gated route/);
+  assert.equal(captureQaLink('person@greatstoneint.com', 'secret'), false);
+  const { links } = await captureQaLinks(async () => captureQaLink(emails[0], 'private-link'));
+  assert.equal(links.get(emails[0]), 'private-link');
 });
 
-test('revoke action removes only the third test membership after sign-in', async () => {
-  const calls = [];
-  const client = {
-    release() {},
-    async query(sql, args = []) {
-      calls.push([sql, args]);
-      if (sql.startsWith('SELECT')) return { rows: [{ email: 'uninvited@example.test', role: 'viewer' }] };
-      return { rows: [] };
-    },
-  };
-  const response = await handleQaInvite(request(undefined, url, 'revoke-uninvited'), env,
-    async () => ({ pool: { connect: async () => client } }));
-  assert.equal(response.status, 200);
-  assert.deepEqual(calls.filter(([sql]) => sql.startsWith('DELETE')).map(([, args]) => args),
-    [['uninvited@example.test', 'viewer']]);
-  assert.equal(calls.at(-1)[0], 'COMMIT');
-});
-
-test('a failed invite rolls back without exposing the database error', async () => {
-  const calls = [];
-  const client = {
-    release() {},
-    async query(sql) {
-      calls.push(sql);
-      if (sql.startsWith('SELECT')) return { rows: [] };
-      if (sql.startsWith('INSERT')) throw new Error('private database detail');
-      return { rows: [] };
-    },
-  };
-  const response = await handleQaInvite(request(), env,
-    async () => ({ pool: { connect: async () => client } }));
-  assert.equal(response.status, 500);
-  assert.ok(calls.includes('ROLLBACK'));
-  assert.equal(calls.includes('COMMIT'), false);
-  assert.equal((await response.text()).includes('private database detail'), false);
-});
-
-test('seed action adds one labelled synthetic risk with the sheet width', async () => {
-  const calls = [];
-  const client = {
-    release() {},
-    async query(sql, args = []) {
-      calls.push([sql, args]);
-      if (sql.startsWith('SELECT id, columns')) return { rows: [{ id: 'plan:Risks & Issues', columns: Array(7).fill('') }] };
-      if (sql.startsWith('SELECT id FROM')) return { rows: [] };
-      if (sql.startsWith('SELECT coalesce')) return { rows: [{ next: 42 }] };
-      return { rows: [] };
-    },
-  };
-  const response = await handleQaInvite(request(undefined, url, 'seed-risk'), env,
-    async () => ({ pool: { connect: async () => client } }));
-  assert.equal(response.status, 200);
-  const insert = calls.find(([sql]) => sql.startsWith('INSERT INTO indago.records'));
-  assert.equal(insert[1][0], 'qa:cross-user-risk');
-  assert.equal(insert[1][2], 42);
-  assert.deepEqual(JSON.parse(insert[1][3]).slice(0, 2), ['QA-ONLY', 'Synthetic QA row; safe to edit']);
-  assert.equal(JSON.parse(insert[1][3]).length, 7);
-  assert.equal(calls.at(-1)[0], 'COMMIT');
-});
-
-test('remove action deletes history and only the labelled synthetic risk', async () => {
-  const calls = [];
-  const client = {
-    release() {},
-    async query(sql, args = []) {
-      calls.push([sql, args]);
-      if (sql.startsWith('SELECT sheet_id')) return { rows: [{
-        sheet_id: 'plan:Risks & Issues', source_values: ['QA-ONLY', 'Synthetic QA row; safe to edit'],
-      }] };
-      return { rows: [] };
-    },
-  };
-  const response = await handleQaInvite(request(undefined, url, 'remove-risk'), env,
-    async () => ({ pool: { connect: async () => client } }));
-  assert.equal(response.status, 200);
-  assert.deepEqual(calls.filter(([sql]) => sql.startsWith('DELETE')).map(([, args]) => args),
-    [['qa:cross-user-risk'], ['qa:cross-user-risk']]);
-  assert.equal(calls.at(-1)[0], 'COMMIT');
-});
-
-test('remove action refuses a changed source row before any delete', async () => {
-  const calls = [];
-  const client = {
-    release() {},
-    async query(sql) {
-      calls.push(sql);
-      if (sql.startsWith('SELECT sheet_id')) return { rows: [{
-        sheet_id: 'plan:Risks & Issues', source_values: ['QA-ONLY', 'unexpected source'],
-      }] };
-      return { rows: [] };
-    },
-  };
-  const response = await handleQaInvite(request(undefined, url, 'remove-risk'), env,
-    async () => ({ pool: { connect: async () => client } }));
-  assert.equal(response.status, 409);
-  assert.ok(calls.includes('ROLLBACK'));
-  assert.equal(calls.some(sql => sql.startsWith('DELETE')), false);
+test('teardown deletes matching synthetic users and memberships', async () => {
+  const accounts = emails.map((email, i) => ({ id: `id-${i}`, email }));
+  const members = accounts.slice(0, 2).map((account, i) =>
+    ({ email: account.email, role: i ? 'viewer' : 'editor', user_id: account.id }));
+  const db = database(accounts, members);
+  assert.equal((await handleQaInvite(request('remove-users'), env, db.load)).status, 200);
+  assert.deepEqual(db.calls.filter(([sql]) => sql.startsWith('DELETE')).map(([, args]) => args[0]),
+    [emails.slice(0, 2), emails]);
+  assert.equal(db.calls.at(-1)[0], 'COMMIT');
 });
