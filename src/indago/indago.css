@@ -197,6 +197,18 @@
 .indago input::placeholder, .indago textarea::placeholder { color: var(--gs-text-faint); opacity: .8; }
 .indago .gs-table .dep-warn { color: var(--gs-warning); font-size: 11px; display: block; margin-top: 3px; }
 .indago .gs-table .calc { color: var(--gs-text); font-variant-numeric: tabular-nums; }
+.indago .deliverables-row td { padding: 0 10px 10px; }
+.indago .deliverables { border-top: 1px solid var(--gs-border-soft); }
+.indago .deliverables summary { cursor: pointer; color: var(--gs-text); font-weight: 700; padding: 9px 4px; width: fit-content; }
+.indago .file-count { color: var(--gs-accent); border: 1px solid var(--gs-border-strong); border-radius: var(--gs-r-pill); padding: 2px 8px; margin-left: 8px; font-variant-numeric: tabular-nums; }
+.indago .deliverables-body { padding: 4px 4px 10px; }
+.indago .file-upload { display: inline-block; position: relative; overflow: hidden; }
+.indago .file-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.indago .file-list { list-style: none; padding: 0; margin: 12px 0 0; }
+.indago .file-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 9px 0; border-top: 1px solid var(--gs-border-soft); }
+.indago .file-name { color: var(--gs-text); font-weight: 700; overflow-wrap: anywhere; }
+.indago .file-actions { display: inline-flex; gap: 8px; }
+.indago .file-upload:focus-within, .indago .deliverables summary:focus-visible { outline: 2px solid var(--gs-accent); outline-offset: 3px; }
 .indago .gantt { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; min-width: 140px; }
 .indago .gantt span { height: 12px; border-radius: 3px; background: rgba(255, 255, 255, .05); }
 .indago .gantt span.on { background: var(--gs-accent-mid); }
@@ -313,6 +325,8 @@
   .indago .gs-table.stack td.locked { background: rgba(255, 255, 255, .025); }
   .indago .gs-table.stack select, .indago .gs-table.stack input, .indago .gs-table.stack textarea { min-width: 0; min-height: 40px; border-color: var(--gs-border-input); background: var(--gs-bg-darker); font-size: 16px; }
   .indago .gs-table.stack tr:hover td { background: none; }
+  .indago .gs-table.stack tr.deliverables-row { margin-top: -10px; border-top: 0; }
+  .indago .gs-table.stack tr.deliverables-row td { display: block; }
   .indago .gs-table.stack td > .pill, .indago .gs-table.stack td > .gantt { justify-self: start; }
 }
 

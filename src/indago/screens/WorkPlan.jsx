@@ -5,7 +5,40 @@ import { EditSelect, EditText, FilterSelect, Governs, Pill } from './ui.jsx';
 
 const COLS = ['WBS', 'Task / activity', 'Accountable role', 'Named owner', 'Period', 'Depends on', 'Exit criterion', 'Gate', 'Status', '%', 'Actual finish', 'Evidence / link', 'Blocker / decision'];
 
-export default function WorkPlan({ state, canEdit, actions }) {
+function Deliverables({ id, files, canEdit, fileActions }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const run = async work => {
+    setBusy(true); setMessage('');
+    try { await work(); setMessage('Done.'); }
+    catch (error) { setMessage(error.message || 'File action failed. Try again.'); }
+    finally { setBusy(false); }
+  };
+  const size = bytes => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
+  return <details className="deliverables">
+    <summary>Deliverables <span className="file-count">{files.length}</span></summary>
+    <div className="deliverables-body">
+      {canEdit && fileActions && <label className="btn small file-upload">Upload
+        <input type="file" accept=".pdf,.docx,.xlsx,.csv,.pptx,.png,.jpg,.jpeg,.gif,.webp,.zip"
+          disabled={busy} aria-label={`Upload deliverable for ${id}`}
+          onChange={e => { const file = e.target.files?.[0]; if (file) run(() => fileActions.upload(id, file)); e.target.value = ''; }} />
+      </label>}
+      {!files.length && <p className="empty">No files yet.</p>}
+      {!!files.length && <ul className="file-list">{files.map(file => <li key={file.id}>
+        <span className="file-name">{file.file_name}</span>
+        <span>{size(file.byte_size)} · {file.uploaded_by} · {new Date(file.uploaded_at).toLocaleString('en-GB')}</span>
+        {fileActions && <span className="file-actions"><button type="button" className="btn small" disabled={busy}
+          onClick={() => run(() => fileActions.download(file))}>Download</button>
+        {canEdit && <button type="button" className="btn small" disabled={busy}
+          onClick={() => { if (window.confirm(`Remove ${file.file_name} from ${id}? It will remain in history.`)) run(() => fileActions.remove(file.id)); }}>Remove</button>}</span>}
+      </li>)}</ul>}
+      {busy && <p role="status">Working on file…</p>}
+      {message && <p role="status">{message}</p>}
+    </div>
+  </details>;
+}
+
+export default function WorkPlan({ state, canEdit, actions, files = [], fileActions }) {
   const [f, setF] = useState(EMPTY_WBS_FILTER);
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
   const rows = filterWbs(state, f);
@@ -49,7 +82,7 @@ export default function WorkPlan({ state, canEdit, actions }) {
                 <React.Fragment key={w.id}>
                   {head && <tr className="group"><td colSpan={COLS.length}>{head}</td></tr>}
                   <tr>
-                    <td className="id" data-label="WBS">{w.id}</td>
+                    <td className="id" data-label="WBS">{w.id} <span className="file-count" aria-label={`${files.filter(file => file.work_package_id === w.id).length} deliverables`}>{files.filter(file => file.work_package_id === w.id).length}</span></td>
                     <td className="mid task" data-label="Task">{w.task}</td>
                     <td data-label="Role">{w.role}</td>
                     <td data-label="Named owner"><EditText canEdit={canEdit} value={w.person} onCommit={edit(w, 'person')} label={lbl('Named owner')} placeholder="Add name" /></td>
@@ -73,6 +106,10 @@ export default function WorkPlan({ state, canEdit, actions }) {
                     <td data-label="Evidence / link"><EditText canEdit={canEdit} value={w.link} onCommit={edit(w, 'link')} label={lbl('Evidence or link')} placeholder="IDs or link" /></td>
                     <td data-label="Blocker / decision"><EditText canEdit={canEdit} multiline value={w.blocker} onCommit={edit(w, 'blocker')} label={lbl('Blocker or decision')} placeholder="—" /></td>
                   </tr>
+                  <tr className="deliverables-row"><td colSpan={COLS.length}>
+                    <Deliverables id={w.id} files={files.filter(file => file.work_package_id === w.id)}
+                      canEdit={canEdit} fileActions={fileActions} />
+                  </td></tr>
                 </React.Fragment>
               );
             })}
