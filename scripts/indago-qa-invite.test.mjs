@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { handleQaInvite } from './indago-qa-invite.mjs';
-import { captureQaLink, captureQaLinks } from './lib/qa-links.mjs';
+import { handleQaInvite } from '../netlify/functions/indago-qa-invite.mjs';
+import { captureQaLink, captureQaLinks } from '../netlify/functions/lib/qa-links.mjs';
 
 const url = 'https://indago.greatstoneint.com/api/indago-qa-invite';
 const env = { INDAGO_QA_INVITE_ENABLED: '1', INDAGO_QA_INVITE_TOKEN: 'a'.repeat(48) };
