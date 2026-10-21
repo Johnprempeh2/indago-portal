@@ -77,3 +77,47 @@ test('teardown deletes matching synthetic users and memberships', async () => {
     [emails.slice(0, 2), emails]);
   assert.equal(db.calls.at(-1)[0], 'COMMIT');
 });
+
+test('seed adds one labelled synthetic risk with the sheet width', async () => {
+  const calls = [];
+  const client = { release() {}, async query(sql, args = []) {
+    calls.push([sql, args]);
+    if (sql.startsWith('SELECT id, columns')) return { rows: [{ columns: Array(7).fill('') }] };
+    if (sql.startsWith('SELECT id FROM')) return { rows: [] };
+    if (sql.startsWith('SELECT coalesce')) return { rows: [{ next: 42 }] };
+    return { rows: [] };
+  } };
+  const load = async () => ({ pool: { connect: async () => client } });
+  assert.equal((await handleQaInvite(request('seed-risk'), env, load)).status, 200);
+  const insert = calls.find(([sql]) => sql.startsWith('INSERT INTO indago.records'));
+  assert.equal(insert[1][0], 'qa:cross-user-risk');
+  assert.deepEqual(JSON.parse(insert[1][3]).slice(0, 2), ['QA-ONLY', 'Synthetic QA row; safe to edit']);
+  assert.equal(JSON.parse(insert[1][3]).length, 7);
+});
+
+test('remove-risk deletes history and only the labelled row', async () => {
+  const calls = [];
+  const client = { release() {}, async query(sql, args = []) {
+    calls.push([sql, args]);
+    if (sql.startsWith('SELECT sheet_id')) return { rows: [{ sheet_id: 'plan:Risks & Issues',
+      source_values: ['QA-ONLY', 'Synthetic QA row; safe to edit'] }] };
+    return { rows: [] };
+  } };
+  const load = async () => ({ pool: { connect: async () => client } });
+  assert.equal((await handleQaInvite(request('remove-risk'), env, load)).status, 200);
+  assert.deepEqual(calls.filter(([sql]) => sql.startsWith('DELETE')).map(([, args]) => args),
+    [['qa:cross-user-risk'], ['qa:cross-user-risk']]);
+});
+
+test('changed synthetic source refuses cleanup', async () => {
+  const calls = [];
+  const client = { release() {}, async query(sql, args = []) {
+    calls.push([sql, args]);
+    if (sql.startsWith('SELECT sheet_id')) return { rows: [{ sheet_id: 'plan:Risks & Issues',
+      source_values: ['QA-ONLY', 'other'] }] };
+    return { rows: [] };
+  } };
+  const load = async () => ({ pool: { connect: async () => client } });
+  assert.equal((await handleQaInvite(request('remove-risk'), env, load)).status, 409);
+  assert.equal(calls.some(([sql]) => sql.startsWith('DELETE')), false);
+});
