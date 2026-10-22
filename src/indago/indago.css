@@ -126,6 +126,35 @@
 .indago .gate-form { flex: 0 1 300px; display: grid; gap: 10px; min-width: 0; width: 100%; }
 .indago .gate-form label { display: grid; gap: 4px; font-size: 12px; color: var(--gs-text-faint); }
 
+/* Control centre: what is next and the gate journey (GRE-1891) */
+.indago .cc-next { border-color: var(--gs-border-strong); background: var(--gs-bg-glass); }
+.indago .cc-next h3, .indago .cc-head h3 { margin-bottom: 12px; }
+.indago .cc-next ol { list-style: none; display: grid; gap: 10px; }
+.indago .cc-next li { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 14px; border: 1px solid var(--gs-border-soft); border-radius: var(--gs-r-item); background: rgba(0, 0, 0, .15); }
+.indago .cc-next li.first { border-color: var(--gs-accent-mid); }
+.indago .cc-num { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; border: 1px solid var(--gs-border-input); color: var(--gs-text-muted); font-variant-numeric: tabular-nums; }
+.indago .cc-next li.first .cc-num { border-color: var(--gs-accent); color: var(--gs-accent); }
+.indago .cc-kicker { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; color: var(--gs-text-faint); }
+.indago .cc-next li.first .cc-kicker { color: var(--gs-accent); }
+.indago .cc-title { font-weight: 700; color: var(--gs-text); line-height: 1.4; }
+.indago .cc-detail { font-size: 13px; color: var(--gs-text-muted); line-height: 1.45; }
+.indago .cc-go { font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; min-height: 40px; padding: 8px 16px; border-radius: var(--gs-r-pill); border: 1px solid var(--gs-border-strong); background: transparent; color: var(--gs-text); cursor: pointer; transition: background-color var(--gs-dur-micro) var(--gs-ease), border-color var(--gs-dur-micro) var(--gs-ease); }
+.indago .cc-go:hover { border-color: var(--gs-accent); }
+.indago .cc-go.primary { background: var(--gs-accent); border-color: var(--gs-accent); color: var(--gs-ink); }
+.indago .cc-go.primary:hover { filter: brightness(1.08); }
+.indago .cc-go:focus-visible { border-radius: var(--gs-r-pill); }
+.indago .cc-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+.indago .cc-gate-top { display: flex; align-items: center; gap: 8px; }
+.indago .cc-dot { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; border: 1px solid var(--gs-border-input); color: var(--gs-text-muted); }
+.indago .gate.ok .cc-dot { background: var(--gs-accent); border-color: var(--gs-accent); color: var(--gs-ink); }
+.indago .cc-journey .gate[aria-current=step] { border-color: var(--gs-accent); box-shadow: var(--gs-glow); }
+.indago .cc-journey .gate[aria-current=step] .cc-dot { border-color: var(--gs-accent); color: var(--gs-accent); }
+.indago .cc-now { margin-left: auto; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; color: var(--gs-accent); }
+.indago .cc-more { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.indago .cc-more > .ns-more[open] { flex: 1 1 100%; }
+.indago .cc-more .kpis { margin-bottom: 0; }
+.indago .cover-more { position: relative; margin-top: 16px; }
+
 /* Pills */
 .indago .pill { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .3px; border-radius: var(--gs-r-pill); padding: 3px 10px; margin: 1px; border: 1px solid var(--gs-border-soft); color: var(--gs-text-muted); white-space: nowrap; }
 .indago .pill.ok { background: var(--gs-accent); color: var(--gs-ink); border-color: var(--gs-accent); }
@@ -418,6 +447,10 @@
   .indago .cover-band h1 { font-size: 24px; letter-spacing: -.5px; }
   .indago .gov .what { display: none; }
   .indago .gov { gap: 8px; margin-top: 14px; }
+  .indago .cc-next li { grid-template-columns: 28px minmax(0, 1fr); gap: 10px 12px; padding: 12px; }
+  .indago .cc-num { width: 28px; height: 28px; }
+  .indago .cc-go { grid-column: 2; justify-self: start; min-height: 44px; }
+  .indago .cc-next li.first .cc-go { justify-self: stretch; }
   .indago .gov .g { padding: 10px 12px; }
   .indago .gates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .indago .card { padding: 18px 16px; }

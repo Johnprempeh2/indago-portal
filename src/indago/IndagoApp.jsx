@@ -111,15 +111,19 @@ export default function IndagoApp({ store, headerSlot, status }) {
           <section className="cover-band" aria-labelledby="cover-h">
             <div className="kicker">Indago Deep Dive™ · Project portal</div>
             <h1 id="cover-h">One place to <span className="accent">run, evidence and trace</span> the Indago Deep Dive.</h1>
-            <div className="gov">
-              {GOV.map((g) => (
-                <div key={g.name} className={`g${g.primary ? ' primary' : ''}`}>
-                  <div className="role">{g.role}</div>
-                  <div className="name">{g.name}</div>
-                  <div className="what">{g.what}</div>
-                </div>
-              ))}
-            </div>
+            {/* The three instruments are reference, not the first thing to read (GRE-1891). */}
+            <details className="ns-more cover-more">
+              <summary>How the three instruments fit together</summary>
+              <div className="gov">
+                {GOV.map((g) => (
+                  <div key={g.name} className={`g${g.primary ? ' primary' : ''}`}>
+                    <div className="role">{g.role}</div>
+                    <div className="name">{g.name}</div>
+                    <div className="what">{g.what}</div>
+                  </div>
+                ))}
+              </div>
+            </details>
           </section>
         )}
 
