@@ -133,11 +133,13 @@ test('a Viewer gets no editable fields on any screen', () => {
 
 test('locked client columns render without inputs; open columns are editable', () => {
   const { el, unmount } = render(lib.SCREENS.Evidence);
-  const first = el.querySelector('tbody tr');
-  const cells = [...first.children];
-  for (const ci of [0, 1, 2, 3, 4]) assert.equal(cells[ci].querySelector('input, select, textarea'), null, `column ${ci} is editable`);
-  assert.ok(cells[5].querySelector('select'), 'client answer is a select');
-  assert.ok(cells[6].querySelector('textarea'), 'client correction is editable');
+  const card = el.querySelector('li.ev');
+  assert.equal(card.id, 'evidence-DEMO-EV-001');
+  assert.equal(card.querySelector('.ev-title').querySelector('input, select, textarea'), null, 'the original statement is not editable');
+  assert.equal(card.querySelector('.ev-meta').querySelector('input, select, textarea'), null, 'area, classification and source are not editable');
+  assert.match(card.querySelector('.ev-title').textContent, /Demo statement 1/);
+  assert.ok(card.querySelector('select[aria-label="Client answer for DEMO-EV-001"]'), 'client answer is a select');
+  assert.ok(card.querySelector('textarea[aria-label="Client correction / comment for DEMO-EV-001"]'), 'client correction is editable');
   assert.equal(el.querySelector('button.btn'), null, 'client findings has no Add row');
   unmount();
 });
@@ -378,5 +380,58 @@ test('Risks lists open risks first, folds closed ones, and opens the wording of 
   for (const li of open.children) assert.ok(onMainPath(li).length <= 6, `${li.id} has a short main path`);
   assert.ok(onMainPath(el.querySelector('#risk-R05')).some((x) => x.getAttribute('aria-label') === 'Risk or issue for R05'), 'a new risk opens its wording');
   assert.equal(onMainPath(el.querySelector('#risk-R01')).some((x) => x.tagName === 'TEXTAREA'), false, 'long text is folded for a written risk');
+  unmount();
+});
+
+test('Investigation shows one stage at a time, opens on the next gate, and folds the Toolkit reference', () => {
+  const { el, calls, unmount } = render(lib.SCREENS.Investigation);
+  assert.equal(el.querySelectorAll('.iv-stage').length, 1, 'one stage card');
+  assert.ok(el.querySelector('#stage-02'), 'opens on the stage of the next gate to approve (G2)');
+  assert.equal(el.querySelectorAll('.gt-steps .gt-step').length, 6);
+  assert.match(el.querySelector('.iv-check').textContent, /1 of 3/, 'the first-week checklist shows progress');
+  assert.ok(onMainPath(el).length <= 5, 'no more than five inputs at once');
+  const box = el.querySelector('#ck1');
+  lib.flushSync(() => box.click());
+  assert.deepEqual(calls.filter((c) => c[0] === 'setCheck'), [['setCheck', 1, true]]);
+  lib.flushSync(() => el.querySelector('.iv-stage .gate-nav .cc-go.primary').click());
+  assert.ok(el.querySelector('#stage-03'), 'Next goes to stage 03');
+  lib.flushSync(() => [...el.querySelectorAll('.gt-steps .gt-step')][0].click());
+  assert.match(el.querySelector('.iv-stage .gate-state').textContent, /done/, 'a stage with an approved gate says it is done');
+  for (const t of ['Mandate and operating rules', 'Document authority', 'Instruments (1)', 'Control rhythm']) {
+    assert.ok([...el.querySelectorAll('details:not([open]) > summary')].some((x) => x.textContent === t), `${t} is folded`);
+  }
+  unmount();
+});
+
+test('Evidence shows each row as a card with at most three choices, ten at a time', () => {
+  const { el, unmount } = render(lib.SCREENS.Evidence);
+  assert.match(el.querySelector('.ev-progress').textContent, /6 of 12 answered · 4 of 12 verified/);
+  assert.equal(el.querySelectorAll('li.ev').length, 10, 'ten rows first');
+  for (const card of el.querySelectorAll('li.ev')) {
+    assert.ok(onMainPath(card).length <= 3, `${card.id} has a short main path`);
+    assert.ok(card.querySelector('details:not([open]) [aria-label^="Indago owner"]'), `${card.id} keeps the other columns behind Details`);
+  }
+  lib.flushSync(() => el.querySelector('.ev-more .cc-go').click());
+  assert.equal(el.querySelectorAll('li.ev').length, 12, 'Show more lists the rest');
+  assert.equal(el.querySelector('.ev-more'), null);
+  unmount();
+});
+
+test('an evidence jump shows the row even past the first ten', () => {
+  const el = document.createElement('div');
+  document.body.appendChild(el);
+  const root = lib.mount(el, lib.React.createElement(lib.SCREENS.Evidence, { state: lib.demoState(), canEdit: false, actions: {}, onOpen: () => {}, evidenceJump: 'DEMO-EV-012' }));
+  assert.ok(el.querySelector('#evidence-DEMO-EV-012'));
+  root.unmount();
+  el.remove();
+});
+
+test('Traceability leads with the chain, one progress line and the look-up; the breakdowns are folded', () => {
+  const { el, unmount } = render(lib.SCREENS.Traceability);
+  assert.match(el.querySelector('.tr-progress').textContent, /0 of 1 GDXP™ rows have the full chain/);
+  assert.ok(el.querySelector('#lookup'));
+  assert.ok(el.querySelector('details:not([open]) .kpis'), 'the measures are folded');
+  assert.ok(el.querySelector('details:not([open]) .row-bar'), 'the area breakdown is folded');
+  assert.ok(el.querySelector('details:not([open]) table'), 'the classification table is folded');
   unmount();
 });

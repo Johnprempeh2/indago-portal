@@ -158,11 +158,11 @@
 /* Work plan, Gates and Risks as short guided lists (GRE-1891). */
 .indago .warn-text { color: var(--gs-warning); }
 .indago .bad-text { color: var(--gs-danger); }
-.indago :is(.wp-status, .wp-fields, .rk-fields, .rk-text) :is(select, input, textarea) {
+.indago :is(.wp-status, .wp-fields, .rk-fields, .rk-text, .ev-fields) :is(select, input, textarea) {
   font: inherit; font-size: 14px; color: var(--gs-text); background: var(--gs-bg-darker); border: 1px solid var(--gs-border-input); border-radius: 8px; padding: 6px 10px; width: 100%; min-width: 0; min-height: 38px;
 }
 .indago :is(.wp-fields, .rk-text) textarea { resize: vertical; min-height: 64px; line-height: 1.45; }
-.indago :is(.wp-status, .wp-fields, .rk-fields, .rk-text) :is(select, input, textarea):focus { outline: none; border-color: var(--gs-accent); box-shadow: none; }
+.indago :is(.wp-status, .wp-fields, .rk-fields, .rk-text, .ev-fields) :is(select, input, textarea):focus { outline: none; border-color: var(--gs-accent); box-shadow: none; }
 .indago .wp-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: -8px 0 16px; }
 .indago .wp-progress .bar { flex: 1 1 200px; max-width: 360px; }
 .indago .wp-progress > .ns-more[open] { flex: 1 1 100%; }
@@ -174,7 +174,7 @@
 .indago .wp-group-head .bar { flex: 1 1 100%; height: 4px; }
 .indago .wp-group.done .wp-group-head .small { color: var(--gs-accent); }
 .indago .wp-list, .indago .rk-list { list-style: none; display: grid; gap: 8px; }
-.indago .wp, .indago .rk { border: 1px solid var(--gs-border-soft); border-radius: var(--gs-r-item); background: var(--gs-bg-card); padding: 12px 16px; }
+.indago .wp, .indago .rk, .indago .ev { border: 1px solid var(--gs-border-soft); border-radius: var(--gs-r-item); background: var(--gs-bg-card); padding: 12px 16px; }
 .indago .wp.blocked { border-color: rgba(255, 107, 107, .45); }
 .indago .wp-head { display: grid; grid-template-columns: 24px minmax(0, 1fr) 170px; gap: 12px; align-items: start; }
 .indago .wp-tick { width: 24px; height: 24px; margin-top: 2px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; border: 1px solid var(--gs-border-input); }
@@ -214,6 +214,24 @@
 .indago .rk .ns-more { padding-left: 0; }
 .indago .rk-text { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
 .indago .cover-more { position: relative; margin-top: 16px; }
+.indago .ok-text { color: var(--gs-accent); }
+/* Investigation, Evidence and Traceability as short guided views (GRE-1891). */
+.indago .iv-stage.ok, .indago .iv-check.ok { border-color: var(--gs-accent-mid); }
+.indago .iv-stage .section-label .pill { margin-left: 4px; letter-spacing: 0; text-transform: none; }
+.indago .iv-stage .gate-bar, .indago .iv-check .bar { margin: 10px 0 4px; }
+.indago .iv-steps { padding-left: 18px; }
+.indago .iv-stage .gate-nav { margin-top: 16px; }
+.indago .ev-progress { margin: 0 0 12px; }
+.indago .ev-title { font-weight: 600; color: var(--gs-text); line-height: 1.45; }
+.indago .ev-title .id { font-weight: 800; font-variant-numeric: tabular-nums; margin-right: 4px; }
+.indago .ev-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 13px; color: var(--gs-text-faint); margin-top: 4px; }
+.indago .ev-meta .locked { color: var(--gs-text-faint); }
+.indago .ev-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 12px; }
+.indago .ev .ns-more { margin-top: 10px; }
+.indago .ev .ns-more > summary { min-height: 30px; padding: 2px 10px; }
+.indago .ev .wp-fields .locked { display: block; padding: 6px 10px; border-radius: var(--gs-r-chip); background: rgba(255, 255, 255, .025); color: var(--gs-text); }
+.indago .ev-more { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.indago .tr-progress { margin: 0 0 16px; }
 
 /* Pills */
 .indago .pill { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .3px; border-radius: var(--gs-r-pill); padding: 3px 10px; margin: 1px; border: 1px solid var(--gs-border-soft); color: var(--gs-text-muted); white-space: nowrap; }
@@ -523,10 +541,12 @@
   .indago .wp-head { grid-template-columns: 24px minmax(0, 1fr); }
   .indago .wp-status { grid-column: 2; }
   .indago .wp-more { padding-left: 0; }
-  .indago :is(.wp-status, .wp-fields, .rk-fields, .rk-text) :is(select, input, textarea) { font-size: 16px; min-height: 44px; }
+  .indago :is(.wp-status, .wp-fields, .rk-fields, .rk-text, .ev-fields) :is(select, input, textarea) { font-size: 16px; min-height: 44px; }
   .indago .rk-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .indago .rk-text { grid-template-columns: minmax(0, 1fr); }
-  .indago .rk { padding: 12px; }
+  .indago .rk, .indago .ev { padding: 12px; }
+  .indago .ev-fields { grid-template-columns: minmax(0, 1fr); }
+  .indago .ev-more .cc-go { min-height: 44px; }
   /* The six gates fit on one row as numbered dots; the chosen gate's card names it. */
   .indago .gt-steps { gap: 6px; }
   .indago .gt-step { justify-content: center; padding: 8px 4px; }
