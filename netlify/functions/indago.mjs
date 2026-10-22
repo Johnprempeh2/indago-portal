@@ -23,10 +23,11 @@ export async function withMember(session, work, openAccess = false, pool = db.po
     await client.query('SET LOCAL ROLE indago_app');
     await client.query("SELECT set_config('indago.user_id', $1, true)", [openAccess ? 'open-access' : session.user.id]);
     if (openAccess) await client.query("SELECT set_config('indago.open_access', 'on', true)");
-    const role = openAccess ? 'editor' :
-      (await client.query('SELECT role FROM indago.members WHERE user_id = $1', [session.user.id])).rows[0]?.role;
+    const member = openAccess ? { role: 'editor', facilitator: false } :
+      (await client.query('SELECT role, facilitator FROM indago.members WHERE user_id = $1', [session.user.id])).rows[0];
+    const role = member?.role;
     if (!role) { await client.query('ROLLBACK'); return json({ error: 'No Indago invitation.' }, 403); }
-    const response = await work(client, role);
+    const response = await work(client, role, member.facilitator === true);
     await client.query('COMMIT');
     return response;
   } catch (error) {
@@ -45,9 +46,9 @@ export default async function handler(request) {
   const route = new URL(request.url).pathname.replace(/^\/api\/indago\/?/, '');
   const openAccess = process.env.INDAGO_OPEN_ACCESS === 'true';
   const session = openAccess ? null : await auth.api.getSession({ headers: request.headers });
-  return withMember(session, (client, role) => route.startsWith('deliverables')
+  return withMember(session, (client, role, facilitator) => route.startsWith('deliverables')
     ? handleDeliverables(request, client, role, route, getStore({ name: 'indago-deliverables', consistency: 'strong' }), openAccess)
-    : handlePortalRequest(request, client, role, route, openAccess), openAccess);
+    : handlePortalRequest(request, client, role, route, openAccess, facilitator), openAccess);
 }
 
 export const config = { path: '/api/indago/*' };

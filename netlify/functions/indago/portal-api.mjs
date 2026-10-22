@@ -11,11 +11,11 @@ async function bodyOf(request) {
   return JSON.parse(text);
 }
 
-export async function handlePortalRequest(request, client, role, route, openAccess = false) {
+export async function handlePortalRequest(request, client, role, route, openAccess = false, facilitator = false) {
     if (route.startsWith('north-star')) return openAccess
       ? json({ error: 'North Star requires named sign-in.' }, 403)
       : handleNorthStar(request, client, role, route);
-    if (request.method === 'GET' && route === 'membership') return json({ role, openAccess });
+    if (request.method === 'GET' && route === 'membership') return json({ role, openAccess, facilitator: !openAccess && facilitator === true });
     if (request.method === 'GET' && route === 'snapshot') {
       const sheets = await client.query(`SELECT * FROM indago.sheets
         WHERE ($1::boolean = false OR id <> 'north-star-requests') ORDER BY position`, [openAccess]);
