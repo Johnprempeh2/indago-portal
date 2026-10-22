@@ -29,6 +29,7 @@ import Evidence from '${join(here, 'Evidence.jsx')}';
 import Traceability from '${join(here, 'Traceability.jsx')}';
 import NorthStar from '${join(here, 'NorthStar.jsx')}';
 import { demoNorthStar } from '${join(here, '../fixture/demo-north-star.mjs')}';
+export { demoNorthStar };
 export const SCREENS = { ControlCentre, WorkPlan, Gates, Risks, Investigation, Evidence, Traceability };
 export { demoState };
 export function mount(el, node) {
@@ -248,4 +249,51 @@ test('North Star guided view gives a Viewer no inputs, and the full record still
   assert.equal(ns.el.querySelectorAll('.ns-section').length, 10);
   assert.ok(ns.el.querySelector('.ns-guardrails'));
   ns.unmount();
+});
+
+test('Control centre leads with what is next and keeps the full dashboard behind toggles', () => {
+  localStorage.clear();
+  const el = document.createElement('div');
+  document.body.appendChild(el);
+  const opened = [];
+  const northStar = { template: lib.demoNorthStar, fields: { 'baseline.0.status': 'Confirmed' } };
+  const root = lib.mount(el, lib.React.createElement(lib.SCREENS.ControlCentre, { state: lib.demoState(), canEdit: false, northStar, onOpen: id => opened.push(id) }));
+  const items = [...el.querySelectorAll('.cc-next li')];
+  assert.equal(items.length, 3, 'three next steps');
+  assert.match(items[0].textContent, /Set the agreed W1 start date/);
+  assert.match(items[1].textContent, /1 of \d+ steps recorded/);
+  lib.flushSync(() => items[1].querySelector('button').click());
+  assert.deepEqual(opened, ['north-star']);
+  assert.equal(el.querySelectorAll('.cc-journey .gate').length, 6, 'six gates in the journey');
+  assert.equal(el.querySelectorAll('.cc-journey [aria-current="step"]').length, 1, 'one next gate');
+  assert.equal(el.querySelectorAll(':scope > .kpis .kpi').length, 4, 'four headline measures');
+  // Workstreams, ready work and milestones are still there, folded.
+  for (const id of ['ctl-ws-h', 'ctl-ready-h', 'ctl-ms-h']) assert.ok(el.querySelector(`details:not([open]) #${id}`), `${id} is behind a toggle`);
+  assert.equal(el.querySelectorAll('details .kpi').length, 9, 'all measures one click away');
+  assert.equal(el.querySelectorAll('[aria-labelledby="ctl-attn-h"] > .list li').length, 3, 'three attention items on the main path');
+  assert.match(el.querySelector('[aria-labelledby="ctl-attn-h"] summary').textContent, /^Show \d+ more$/);
+  root.unmount();
+  el.remove();
+});
+
+test('"See blocked work" lands on the Work plan filtered to blocked packages', () => {
+  const el = document.createElement('div');
+  document.body.appendChild(el);
+  const state = lib.demoState();
+  const opened = [];
+  let root = lib.mount(el, lib.React.createElement(lib.SCREENS.ControlCentre, { state, canEdit: false, onOpen: (id, jump) => opened.push([id, jump]) }));
+  const button = [...el.querySelectorAll('.cc-go')].find(b => b.textContent === 'See blocked work');
+  lib.flushSync(() => button.click());
+  const [[tab, jump]] = opened;
+  assert.equal(tab, 'plan');
+  root.unmount();
+  root = lib.mount(el, lib.React.createElement(lib.SCREENS.WorkPlan, { state, canEdit: false, actions: {}, files: [], onOpen: () => {}, jump }));
+  const blocked = state.wbs.filter(w => w.status === 'Blocked');
+  const rows = [...el.querySelectorAll('tbody tr[id^="wbs-"]')];
+  assert.ok(blocked.length > 0);
+  assert.deepEqual(rows.map(r => r.id), blocked.map(w => `wbs-${w.id}`), 'only blocked packages are listed');
+  assert.equal(el.querySelector('select[aria-label="Status"]').value, 'Blocked', 'the filter shows why');
+  assert.ok(el.querySelector(`[id="${jump.focus}"]`), 'the focus target is on the screen');
+  root.unmount();
+  el.remove();
 });

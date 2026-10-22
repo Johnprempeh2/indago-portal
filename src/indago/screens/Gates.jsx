@@ -15,7 +15,7 @@ export default function Gates({ state, canEdit, actions, northStar, onOpen }) {
         const p = gateProgress(state, g.id);
         const edit = (field) => (value) => actions.updateGate(g.id, field, value);
         return (
-          <section key={g.id} className={`card mb gate-card${g.status.startsWith('Approved') ? ' ok' : ''}`} aria-labelledby={`gate-${g.id}`}>
+          <section key={g.id} id={`gate-card-${g.id}`} className={`card mb gate-card${g.status.startsWith('Approved') ? ' ok' : ''}`} aria-labelledby={`gate-${g.id}`}>
             <div className="gate-main">
               <div className="section-label">{g.id}{st.n && ` · Stage ${st.n}`}</div>
               <h3 id={`gate-${g.id}`} className="gate-title">{g.stage}</h3>

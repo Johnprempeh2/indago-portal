@@ -38,8 +38,8 @@ export function Deliverables({ id, files, canEdit, fileActions }) {
   </details>;
 }
 
-export default function WorkPlan({ state, canEdit, actions, files = [], fileActions, onOpen, hideNorthStar = false }) {
-  const [f, setF] = useState(EMPTY_WBS_FILTER);
+export default function WorkPlan({ state, canEdit, actions, files = [], fileActions, onOpen, hideNorthStar = false, jump }) {
+  const [f, setF] = useState(() => ({ ...EMPTY_WBS_FILTER, ...jump?.filter }));
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
   const rows = filterWbs(state, f);
   const edit = (w, field) => (value) => actions.updateWbs(w.id, field, value);
@@ -55,11 +55,11 @@ export default function WorkPlan({ state, canEdit, actions, files = [], fileActi
         <label htmlFor="kickoff">Agreed W1 start date</label>
         {canEdit
           ? <input id="kickoff" type="date" key={state.kickoff} defaultValue={state.kickoff} onBlur={(e) => e.target.value !== state.kickoff && actions.setKickoff(e.target.value)} />
-          : <span className="ro">{state.kickoff || 'Not set'}</span>}
+          : <span id="kickoff" className="ro">{state.kickoff || 'Not set'}</span>}
         <span className="hint">{state.kickoff ? 'Periods below show calendar weeks from this date.' : 'Not set. W1–W4 are planning assumptions until dates are agreed at kick-off.'}</span>
       </div>
 
-      <div className="toolbar">
+      <div id="wbs-toolbar" className="toolbar">
         <input type="search" value={f.q} onChange={(e) => set('q')(e.target.value)} placeholder="Search work packages" aria-label="Search work packages" />
         <FilterSelect value={f.ws} onChange={set('ws')} all="All workstreams" options={uniq(state.wbs.map((w) => w.ws))} label="Workstream" />
         <FilterSelect value={f.gate} onChange={set('gate')} all="All gates" options={state.gates.map((g) => g.id)} label="Gate" />
