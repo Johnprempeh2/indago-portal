@@ -2,7 +2,7 @@ import { previewUsers } from '../netlify/functions/lib/preview-login.mjs';
 
 if (process.env.INDAGO_REMOVE_PREVIEW_USERS !== '1' ||
     process.env.INDAGO_TEST_LOGIN === '1' ||
-    process.env.INDAGO_TEST_LOGIN_HOST !== 'greatstone-indago-portal.netlify.app' ||
+    process.env.INDAGO_TEST_LOGIN_HOST !== 'greatstone-indago-preview.netlify.app' ||
     !(process.env.NETLIFY_DB_URL || process.env.DATABASE_URL)) {
   throw new Error('Turn off preview login and set the preview removal configuration first');
 }
