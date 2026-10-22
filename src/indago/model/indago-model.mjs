@@ -146,6 +146,51 @@ export function riskSummary(risks) {
   };
 }
 
+// The investigation stage to show first: the stage of the next gate not yet approved (GRE-1891).
+export function focusStage(state) {
+  const stages = state.toolkit?.stages || [];
+  const gate = focusGate(state);
+  return (stages.find((s) => s.g === gate) || stages[0])?.n || '';
+}
+
+// Per register sheet: the select column that says a row is done, and the
+// values that count (GRE-1891). Sheets without a status column have no line.
+const REG_DONE = {
+  'Client Findings': [8, ['Corroborated', 'Client-validated'], 'verified'],
+  'Information Requests': [7, ['Complete'], 'complete'],
+  'New Deep Dive Evidence': [7, ['Source checked', 'Corroborated'], 'checked'],
+  'Service Processes': [13, ['Validated'], 'validated'],
+  'Commercial Baseline': [11, ['Verified'], 'verified'],
+  'Findings': [9, ['Validated'], 'validated'],
+  'Opportunities': [9, ['Recommended', 'Deferred', 'Rejected'], 'decided'],
+  'Decisions': [7, ['Approved', 'Approved with conditions', 'Rejected', 'Deferred'], 'decided'],
+  'GDXP Traceability': [9, ['Passed'], 'passed'],
+};
+
+export function regProgress(sheet, rows) {
+  const d = REG_DONE[sheet];
+  if (!d) return null;
+  const [ci, values, word] = d;
+  const done = rows.filter((r) => values.includes(r[ci])).length;
+  const answered = sheet === 'Client Findings' ? rows.filter((r) => ['Confirmed', 'Partly correct', 'Not correct'].includes(r[5])).length : null;
+  return { done, total: rows.length, word, answered, percent: rows.length ? asPercent(done / rows.length) : 0 };
+}
+
+// How one register row is laid out as a card (GRE-1891): the ID, a title
+// column, short read-only facts, up to three choices and dates on the main
+// path, and every other column behind "Details".
+export function regCardLayout(sheet, cols) {
+  const cfg = REG[sheet] || {};
+  const lock = cfg.lock || [];
+  const wide = cfg.wide || [];
+  const all = cols.map((_, ci) => ci).slice(1);
+  const title = wide.find((ci) => lock.includes(ci)) ?? wide[0] ?? 1;
+  const facts = all.filter((ci) => ci !== title && lock.includes(ci) && !wide.includes(ci));
+  const quick = [...Object.keys(cfg.sel || {}).map(Number), ...(cfg.date || [])].filter((ci) => !lock.includes(ci)).slice(0, 3);
+  const details = all.filter((ci) => !facts.includes(ci) && !quick.includes(ci) && !(ci === title && lock.includes(ci)));
+  return { title, facts, quick, details };
+}
+
 // Gantt cells W1..Post for one work package.
 export function ganttCells(w) {
   const i0 = PERIODS.indexOf(w.start);
@@ -216,9 +261,10 @@ export function traceSummary(state) {
   const op = rows('Opportunities');
   const cf = rows('Client Findings');
   const filled = (r) => r.slice(1).some(Boolean);
+  const chained = (r) => r[1] && (r[2] || r[3]) && r[4] && r[5] && r[6] && r[7];
   const kpis = [
     { value: String(g.filter((r) => r[6]).length), label: 'GDXP rows with a target design / roadmap' },
-    { value: `${g.filter((r) => r[1] && (r[2] || r[3]) && r[4] && r[5] && r[6] && r[7]).length}/${g.filter(filled).length}`, label: 'GDXP rows with the full chain filled' },
+    { value: `${g.filter(chained).length}/${g.filter(filled).length}`, label: 'GDXP rows with the full chain filled' },
     { value: `${f.filter((r) => r[3]).length}/${f.filter(filled).length}`, label: 'Findings that cite evidence IDs' },
     { value: `${op.filter((r) => r[2] && r[8]).length}/${op.filter(filled).length}`, label: 'Opportunities linked to findings and evidence' },
     { value: String(rows('Validation Log').length), label: 'Validation log entries' },
@@ -231,7 +277,7 @@ export function traceSummary(state) {
   });
   const classes = ['stated', 'confirm', 'differ'];
   const matrix = classes.map((c) => ({ cls: c, counts: OPT.verif.map((v) => cf.filter((r) => r[2] === c && r[8] === v).length) }));
-  return { kpis, areas, matrix, verif: OPT.verif };
+  return { kpis, areas, matrix, verif: OPT.verif, full: g.filter(chained).length, rows: g.filter(filled).length };
 }
 
 // Where an ID (or any text of 3+ characters) is used across the register and the plan.

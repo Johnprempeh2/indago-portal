@@ -4,6 +4,7 @@ import { demoState } from '../fixture/demo-state.mjs';
 import {
   controlSummary, depsOpen, weekLabel, filterWbs, EMPTY_WBS_FILTER, ganttCells, heatGrid, nextId,
   calcCell, filterRegRows, traceSummary, lookup, sheetRows, toCsv, wbsGroups, focusGate, focusWorkstream, riskSummary,
+  focusStage, regProgress, regCardLayout,
 } from './indago-model.mjs';
 import { reduce } from './local-store.mjs';
 
@@ -175,4 +176,32 @@ test('risk summary keeps closed risks apart and counts high × high and unowned 
   assert.deepEqual(s.closed.map((r) => r.id), ['R03']);
   assert.equal(s.highHigh, 2);
   assert.equal(s.noOwner, 1);
+});
+
+test('the investigation opens on the stage of the next gate to approve', () => {
+  const state = demoState();
+  assert.equal(focusStage(state), '02');
+  state.gates.forEach((g) => { g.status = 'Approved'; });
+  assert.equal(focusStage(state), '06', 'all approved: the last stage');
+  assert.equal(focusStage({ ...state, toolkit: undefined }), '');
+});
+
+test('register progress counts verified and answered rows per sheet', () => {
+  const reg = demoState().reg;
+  assert.deepEqual(regProgress('Client Findings', reg['Client Findings'].rows), { done: 4, total: 12, word: 'verified', answered: 6, percent: 33 });
+  assert.equal(regProgress('Information Requests', reg['Information Requests'].rows).done, 2);
+  assert.equal(regProgress('Validation Log', []), null, 'no status column, no line');
+});
+
+test('a register card keeps locked columns read-only and at most three choices on the main path', () => {
+  const cols = demoState().reg['Client Findings'].cols;
+  const l = regCardLayout('Client Findings', cols);
+  assert.equal(l.title, 3, 'the original statement is the title');
+  assert.deepEqual(l.facts, [1, 2, 4]);
+  assert.deepEqual(l.quick, [5, 8, 9]);
+  assert.deepEqual(l.details, [6, 7, 10, 11, 12, 13, 14]);
+  const dd = regCardLayout('New Deep Dive Evidence', demoState().reg['New Deep Dive Evidence'].cols);
+  assert.equal(dd.title, 5);
+  assert.ok(dd.details.includes(5), 'an editable title can still be edited under Details');
+  assert.deepEqual(dd.quick, [7, 4]);
 });
