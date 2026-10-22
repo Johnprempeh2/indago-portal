@@ -140,6 +140,7 @@
 .indago .cc-detail { font-size: 13px; color: var(--gs-text-muted); line-height: 1.45; }
 .indago .cc-go { font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; min-height: 40px; padding: 8px 16px; border-radius: var(--gs-r-pill); border: 1px solid var(--gs-border-strong); background: transparent; color: var(--gs-text); cursor: pointer; transition: background-color var(--gs-dur-micro) var(--gs-ease), border-color var(--gs-dur-micro) var(--gs-ease); }
 .indago .cc-go:hover { border-color: var(--gs-accent); }
+.indago .jump-target:focus { outline: 2px solid var(--gs-accent); outline-offset: 2px; }
 .indago .cc-go.primary { background: var(--gs-accent); border-color: var(--gs-accent); color: var(--gs-ink); }
 .indago .cc-go.primary:hover { filter: brightness(1.08); }
 .indago .cc-go:focus-visible { border-radius: var(--gs-r-pill); }
@@ -443,8 +444,12 @@
   .indago .export { flex: 1 1 220px; min-width: 0; }
   .indago .export select { flex: 1 1 auto; min-width: 0; font-size: 16px; min-height: 40px; }
   .indago .export .btn { flex: none; min-height: 40px; }
-  .indago .cover-band { padding: 20px 18px; margin-top: 16px; }
-  .indago .cover-band h1 { font-size: 24px; letter-spacing: -.5px; }
+  /* Compact cover and title so the first "What is next" action shows without scrolling at 390x844. */
+  .indago .cover-band { padding: 16px 16px 14px; margin-top: 12px; }
+  .indago .cover-band .kicker { letter-spacing: 2px; margin-bottom: 6px; }
+  .indago .cover-band h1 { font-size: 21px; letter-spacing: -.4px; }
+  .indago .cover-more { margin-top: 10px; }
+  .indago h2.section-title { font-size: 21px; }
   .indago .gov .what { display: none; }
   .indago .gov { gap: 8px; margin-top: 14px; }
   .indago .cc-next li { grid-template-columns: 28px minmax(0, 1fr); gap: 10px 12px; padding: 12px; }

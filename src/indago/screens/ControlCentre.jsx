@@ -29,12 +29,7 @@ export default function ControlCentre({ state, onOpen, northStar, hideNorthStar 
     <>
       <Governs>Master Project Plan · live view</Governs>
       <h2 className="section-title">Where the Deep Dive stands</h2>
-      <p className="lead">
-        {s.done} of {s.total} work packages complete, {s.inProgress} in progress, {s.blocked} blocked. {s.gatesApproved} of {state.gates.length} gates approved
-        {s.nextGate && <>; next gate is <b>{s.nextGate.id} {s.nextGate.stage}</b></>}. {s.answered} of {s.cfTotal} client findings answered.
-      </p>
-      {state.kickoff && <div className="note"><b>Baseline set.</b> W1 starts {longDate(state.kickoff)}. Periods now show calendar weeks.</div>}
-
+      {/* The next actions come before the long summary, so on a phone the first one shows without scrolling. */}
       <section className="card mb cc-next" aria-labelledby="ctl-next-h">
         <h3 id="ctl-next-h">What is next</h3>
         {next.length ? (
@@ -47,12 +42,18 @@ export default function ControlCentre({ state, onOpen, northStar, hideNorthStar 
                   <div className="cc-title">{n.title}</div>
                   <div className="cc-detail">{n.detail}</div>
                 </div>
-                <button type="button" className={`cc-go${i === 0 ? ' primary' : ''}`} onClick={() => onOpen(n.tab)}>{n.go}</button>
+                <button type="button" className={`cc-go${i === 0 ? ' primary' : ''}`} onClick={() => onOpen(n.tab, n.jump)}>{n.go}</button>
               </li>
             ))}
           </ol>
         ) : <p className="empty">Nothing waiting. Every gate is approved.</p>}
       </section>
+
+      <p className="lead">
+        {s.done} of {s.total} work packages complete, {s.inProgress} in progress, {s.blocked} blocked. {s.gatesApproved} of {state.gates.length} gates approved
+        {s.nextGate && <>; next gate is <b>{s.nextGate.id} {s.nextGate.stage}</b></>}. {s.answered} of {s.cfTotal} client findings answered.
+      </p>
+      {state.kickoff && <div className="note"><b>Baseline set.</b> W1 starts {longDate(state.kickoff)}. Periods now show calendar weeks.</div>}
 
       <section className="card mb" aria-labelledby="ctl-gates-h">
         <div className="cc-head">
