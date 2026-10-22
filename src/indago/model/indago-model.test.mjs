@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { demoState } from '../fixture/demo-state.mjs';
 import {
   controlSummary, depsOpen, weekLabel, filterWbs, EMPTY_WBS_FILTER, ganttCells, heatGrid, nextId,
-  calcCell, filterRegRows, traceSummary, lookup, sheetRows, toCsv,
+  calcCell, filterRegRows, traceSummary, lookup, sheetRows, toCsv, wbsGroups, focusGate, riskSummary,
 } from './indago-model.mjs';
 import { reduce } from './local-store.mjs';
 
@@ -133,4 +133,37 @@ test('CSV export quotes cells and starts with a BOM', () => {
   assert.equal(csv, '﻿a,"b,c","d""e"');
   assert.equal(sheetRows(st, 'Work Breakdown').length, 19);
   assert.equal(toCsv([['=HYPERLINK("x")', '+1', '@a', '-1500', '-2.5']]), '\uFEFF"\'=HYPERLINK(""x"")",\'+1,\'@a,-1500,-2.5');
+});
+
+test('work packages group by workstream; counts cover the whole workstream, not the filter', () => {
+  const st = demoState();
+  const all = wbsGroups(st, st.wbs);
+  assert.equal(all.length, 6);
+  assert.equal(all.reduce((n, g) => n + g.items.length, 0), 18);
+  assert.deepEqual([all[0].name, all[0].done, all[0].total], ['Evidence confirmation', 2, 3]);
+  const blocked = wbsGroups(st, filterWbs(st, { ...EMPTY_WBS_FILTER, status: 'Blocked' }));
+  for (const g of blocked) assert.equal(g.total, st.wbs.filter((w) => w.ws === g.name).length);
+  assert.ok(blocked.every((g) => g.items.every((w) => w.status === 'Blocked')));
+});
+
+test('the Gates screen opens on the gate asked for, else the next one to approve', () => {
+  const st = demoState();
+  assert.equal(focusGate(st), 'G2');
+  assert.equal(focusGate(st, 'G4'), 'G4');
+  assert.equal(focusGate(st, 'G9'), 'G2');
+  st.gates.forEach((g) => { g.status = 'Approved'; });
+  assert.equal(focusGate(st), 'G6');
+});
+
+test('risk summary keeps closed risks apart and counts high × high and unowned open risks', () => {
+  const risks = [
+    { id: 'R01', l: 'High', i: 'High', owner: 'Lead', status: 'Open' },
+    { id: 'R02', l: 'High', i: 'High', owner: ' ', status: 'Mitigating' },
+    { id: 'R03', l: 'High', i: 'High', owner: '', status: 'Closed' },
+  ];
+  const s = riskSummary(risks);
+  assert.deepEqual(s.open.map((r) => r.id), ['R01', 'R02']);
+  assert.deepEqual(s.closed.map((r) => r.id), ['R03']);
+  assert.equal(s.highHigh, 2);
+  assert.equal(s.noOwner, 1);
 });
