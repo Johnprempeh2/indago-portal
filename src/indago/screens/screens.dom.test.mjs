@@ -109,8 +109,8 @@ test('work package shows file count, metadata and Viewer download without upload
     byte_size: 1200000, uploaded_by: 'Demo Person', uploaded_at: '2026-10-20T09:00:00Z' }];
   const fileActions = { download: async () => {}, upload: async () => {}, remove: async () => {} };
   const { el, unmount } = render(lib.SCREENS.WorkPlan, { canEdit: false, files, fileActions });
-  const row = el.querySelector('tbody tr:not(.group)');
-  assert.match(row.textContent, /1\.01\s*1/);
+  const row = el.querySelector('#wbs-1\\.01');
+  assert.equal(row.querySelector('.file-count').textContent, '1');
   const details = el.querySelector('.deliverables');
   assert.match(details.textContent, /Invented sample\.csv/);
   assert.match(details.textContent, /Demo Person/);
@@ -289,11 +289,74 @@ test('"See blocked work" lands on the Work plan filtered to blocked packages', (
   root.unmount();
   root = lib.mount(el, lib.React.createElement(lib.SCREENS.WorkPlan, { state, canEdit: false, actions: {}, files: [], onOpen: () => {}, jump }));
   const blocked = state.wbs.filter(w => w.status === 'Blocked');
-  const rows = [...el.querySelectorAll('tbody tr[id^="wbs-"]')];
+  const rows = [...el.querySelectorAll('li[id^="wbs-"]')];
   assert.ok(blocked.length > 0);
   assert.deepEqual(rows.map(r => r.id), blocked.map(w => `wbs-${w.id}`), 'only blocked packages are listed');
   assert.equal(el.querySelector('select[aria-label="Status"]').value, 'Blocked', 'the filter shows why');
   assert.ok(el.querySelector(`[id="${jump.focus}"]`), 'the focus target is on the screen');
   root.unmount();
   el.remove();
+});
+
+// Inputs a person sees without opening any "more" toggle.
+const onMainPath = (root) => [...root.querySelectorAll('input:not([type=search]), select, textarea')]
+  .filter((x) => !x.closest('details:not([open])') && !x.closest('.toolbar'));
+
+test('Work plan lists work packages by workstream with status first and the rest behind Details', () => {
+  const state = lib.demoState();
+  const { el, calls, unmount } = render(lib.SCREENS.WorkPlan, { state });
+  assert.equal(el.querySelectorAll('.wp-group').length, 6, 'one group per workstream');
+  assert.match(el.querySelector('.wp-group-head').textContent, /2 of 3 complete/);
+  const cards = [...el.querySelectorAll('li.wp')];
+  assert.equal(cards.length, 18);
+  for (const card of cards) {
+    assert.deepEqual(onMainPath(card).map((x) => x.getAttribute('aria-label')), [`Status for ${card.id.slice(4)}`], `${card.id} shows only its status`);
+    assert.ok(card.querySelector('details:not([open]) [aria-label^="Named owner"]'), `${card.id} keeps the owner behind Details`);
+  }
+  assert.equal(el.querySelectorAll('li.wp.done .wp-tick').length, state.wbs.filter((w) => w.status === 'Complete').length, 'complete work is ticked');
+  const blocker = el.querySelector('li.wp.blocked .wp-blocker');
+  assert.match(blocker.textContent, /Blocker: Waiting for a demo decision/, 'the blocker shows without opening Details');
+  const select = el.querySelector('select[aria-label="Status for 1.03"]');
+  select.value = 'Complete';
+  lib.flushSync(() => select.dispatchEvent(new win.Event('change', { bubbles: true })));
+  assert.deepEqual(calls.filter((c) => c[0] === 'updateWbs'), [['updateWbs', '1.03', 'status', 'Complete']]);
+  unmount();
+});
+
+test('Gates shows one gate at a time, opens on the next gate, and steps between gates', () => {
+  const { el, unmount } = render(lib.SCREENS.Gates);
+  assert.equal(el.querySelectorAll('.gate-card').length, 1, 'one gate card');
+  assert.ok(el.querySelector('#gate-card-G2'), 'opens on the next gate to approve');
+  assert.equal(el.querySelectorAll('.gt-step').length, 6);
+  assert.equal(el.querySelector('.gt-step[aria-pressed="true"]').textContent.includes('G2'), true);
+  assert.ok(onMainPath(el).length <= 5, 'no more than five inputs at once');
+  lib.flushSync(() => el.querySelector('.gate-nav .cc-go.primary').click());
+  assert.ok(el.querySelector('#gate-card-G3'), 'Next goes to G3');
+  lib.flushSync(() => [...el.querySelectorAll('.gt-step')][0].click());
+  assert.match(el.querySelector('.gate-state').textContent, /Approved/, 'an approved gate says so');
+  assert.ok(el.querySelector('details:not([open]) [aria-label^="Status for"]'), 'milestones are folded');
+  unmount();
+});
+
+test('a "What is next" gate button opens the Gates screen on that gate', () => {
+  const el = document.createElement('div');
+  document.body.appendChild(el);
+  const root = lib.mount(el, lib.React.createElement(lib.SCREENS.Gates, { state: lib.demoState(), canEdit: false, actions: {}, onOpen: () => {}, jump: { focus: 'gate-card-G5' } }));
+  assert.ok(el.querySelector('#gate-card-G5'));
+  root.unmount();
+  el.remove();
+});
+
+test('Risks lists open risks first, folds closed ones, and opens the wording of a new risk', () => {
+  const state = lib.demoState();
+  state.risks.push({ id: 'R05', risk: '', l: 'Medium', i: 'Medium', owner: '', resp: '', status: 'Open' });
+  const { el, unmount } = render(lib.SCREENS.Risks, { state });
+  const open = [...el.querySelectorAll('.rk-list')][0];
+  assert.deepEqual([...open.children].map((li) => li.id), ['risk-R01', 'risk-R02', 'risk-R03', 'risk-R05']);
+  assert.ok(el.querySelector('details:not([open]) #risk-R04'), 'the closed risk is folded');
+  assert.match(el.querySelector('.rk-summary').textContent, /4 open · 1 high × high · 1 without an owner · 1 closed/);
+  for (const li of open.children) assert.ok(onMainPath(li).length <= 6, `${li.id} has a short main path`);
+  assert.ok(onMainPath(el.querySelector('#risk-R05')).some((x) => x.getAttribute('aria-label') === 'Risk or issue for R05'), 'a new risk opens its wording');
+  assert.equal(onMainPath(el.querySelector('#risk-R01')).some((x) => x.tagName === 'TEXTAREA'), false, 'long text is folded for a written risk');
+  unmount();
 });
