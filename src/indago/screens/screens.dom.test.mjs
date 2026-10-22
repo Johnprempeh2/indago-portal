@@ -27,6 +27,8 @@ import Risks from '${join(here, 'Risks.jsx')}';
 import Investigation from '${join(here, 'Investigation.jsx')}';
 import Evidence from '${join(here, 'Evidence.jsx')}';
 import Traceability from '${join(here, 'Traceability.jsx')}';
+import NorthStar from '${join(here, 'NorthStar.jsx')}';
+import { demoNorthStar } from '${join(here, '../fixture/demo-north-star.mjs')}';
 export const SCREENS = { ControlCentre, WorkPlan, Gates, Risks, Investigation, Evidence, Traceability };
 export { demoState };
 export function mount(el, node) {
@@ -39,6 +41,20 @@ export function Tabs(props) {
   return React.createElement(TabList, { ...props, current: cur, onSelect: setCur });
 }
 export { React, flushSync };
+// North Star with an in-memory store that applies the IND-NS-001 approval rule like the server.
+export function NorthStarHost({ canEdit = true, calls = [], initial = {} }) {
+  const [fields, setFields] = React.useState(initial);
+  const actions = {
+    save: async (key, value) => {
+      calls.push([key, value]);
+      if (key === 'approval.status' && value.startsWith('Approved') && fields['convergence.6.answer'] !== 'Yes') throw new Error('Record participant acceptance as Yes before approval.');
+      setFields(current => ({ ...current, [key]: value }));
+    },
+    addHypothesis: async () => ({ id: 'NS-H-07' }), sendHypothesis: async () => {}, history: async () => [],
+  };
+  return React.createElement(NorthStar, { state: demoState(), canEdit, northStar: { template: demoNorthStar, fields }, northStarActions: actions,
+    onOpen: () => {}, onEvidence: () => {}, files: [] });
+}
 `;
 
 let lib;
@@ -49,7 +65,7 @@ const realError = console.error;
 
 before(async () => {
   win = new Window({ url: 'http://localhost/' });
-  for (const k of ['window', 'document', 'navigator', 'HTMLElement', 'Node', 'Event', 'KeyboardEvent', 'FocusEvent', 'location', 'history']) {
+  for (const k of ['window', 'document', 'navigator', 'HTMLElement', 'Node', 'Event', 'KeyboardEvent', 'FocusEvent', 'location', 'history', 'localStorage']) {
     Object.defineProperty(globalThis, k, { value: k === 'window' ? win : win[k], configurable: true, writable: true });
   }
   globalThis.IS_REACT_ACT_ENVIRONMENT = false;
@@ -151,4 +167,82 @@ test('arrow keys, Home and End move between tabs', () => {
   assert.equal([...el.querySelectorAll('[role=tab]')].filter((t) => t.tabIndex === 0).length, 1, 'one tab stop');
   root.unmount();
   el.remove();
+});
+
+function renderNorthStar(props = {}) {
+  localStorage.clear();
+  const el = document.createElement('div');
+  document.body.appendChild(el);
+  const calls = [];
+  const root = lib.mount(el, lib.React.createElement(lib.NorthStarHost, { calls, ...props }));
+  const click = node => lib.flushSync(() => node.click());
+  const button = text => [...el.querySelectorAll('button')].find(b => b.textContent.trim() === text);
+  // A choice group counts as one input, like a select.
+  const inputs = () => el.querySelectorAll('.ns-card .ns-field, .ns-card .ns-add, .ns-card > .ns-chips > .ns-chip').length;
+  return { el, calls, click, button, inputs, unmount: () => { root.unmount(); el.remove(); } };
+}
+const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+
+test('North Star opens as a guided path, one small step at a time', async () => {
+  const before = errors.length;
+  const ns = renderNorthStar();
+  assert.equal(ns.el.querySelectorAll('.ns-card').length, 1, 'one step card');
+  assert.match(ns.el.querySelector('.ns-card-meta').textContent, /Step 1 of 7/);
+  assert.equal(ns.el.querySelectorAll('.ns-rail li').length, 10, 'ten parts in the journey');
+  // Walk every step: none shows more than five inputs.
+  for (let guard = 0; guard < 120 && (ns.button('Next') || ns.button('Finish this part')); guard++) {
+    assert.ok(ns.inputs() <= 5, `${ns.el.querySelector('.ns-card h4').textContent} shows ${ns.inputs()} inputs`);
+    const next = ns.button('Next') || ns.button('Finish this part');
+    ns.click(next);
+    const onward = [...ns.el.querySelectorAll('.ns-finish button')].find(b => b.textContent.startsWith('Next: '));
+    if (onward) ns.click(onward);
+    else if (ns.el.querySelector('.ns-finish')) break;
+  }
+  assert.match(ns.el.querySelector('.ns-finish').textContent, /Read the full record/);
+  assert.deepEqual(errors.slice(before), [], 'North Star logged errors');
+  ns.unmount();
+});
+
+test('choosing a chip saves and ticks the step; finishing a part says so', async () => {
+  const ns = renderNorthStar();
+  for (let i = 0; i < 7; i++) {
+    ns.click(ns.el.querySelector('.ns-card .ns-chip'));
+    await settle();
+    ns.click(ns.button(i < 6 ? 'Next' : 'Finish this part'));
+  }
+  assert.deepEqual(ns.calls.map(c => c[0]), Array.from({ length: 7 }, (_, i) => `baseline.${i}.status`));
+  assert.ok(ns.calls.every(c => c[1] === 'Confirmed'));
+  assert.match(ns.el.querySelector('.ns-finish').textContent, /done/);
+  assert.ok(ns.el.querySelector('.ns-rail button.complete'), 'the part is ticked in the journey');
+  assert.match(ns.el.querySelector('.ns-overall-text').textContent, /^7 of \d+ steps recorded/);
+  ns.unmount();
+});
+
+test('IND-NS-001: Approved stays unavailable until acceptance is Yes', async () => {
+  const approve = (props) => {
+    const ns = renderNorthStar(props);
+    ns.click([...ns.el.querySelectorAll('.ns-rail button')].at(-1));
+    const chip = [...ns.el.querySelectorAll('.ns-card .ns-chip')].find(b => b.textContent === 'Approved');
+    return { ns, chip };
+  };
+  let { ns, chip } = approve();
+  assert.equal(chip.disabled, true);
+  assert.match(ns.el.querySelector('.ns-card .note').textContent, /acceptance recorded as Yes/);
+  ns.unmount();
+  ({ ns, chip } = approve({ initial: { 'convergence.6.answer': 'Yes' } }));
+  assert.equal(chip.disabled, false);
+  ns.click(chip);
+  await settle();
+  assert.deepEqual(ns.calls, [['approval.status', 'Approved']]);
+  ns.unmount();
+});
+
+test('North Star guided view gives a Viewer no inputs, and the full record still shows every section', () => {
+  const ns = renderNorthStar({ canEdit: false });
+  assert.equal(ns.el.querySelectorAll('.ns-guide textarea, .ns-guide select, .ns-guide input, .ns-card button.ns-chip, .ns-add').length, 0);
+  ns.click(ns.button('Full record'));
+  assert.equal(ns.el.querySelector('.ns-guide'), null);
+  assert.equal(ns.el.querySelectorAll('.ns-section').length, 10);
+  assert.ok(ns.el.querySelector('.ns-guardrails'));
+  ns.unmount();
 });

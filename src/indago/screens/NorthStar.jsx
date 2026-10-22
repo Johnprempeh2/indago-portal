@@ -1,127 +1,27 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Deliverables } from './WorkPlan.jsx';
+import { Field, Clock, exportHypotheses, northStarWork } from './ns-fields.jsx';
+import NorthStarGuide from './NorthStarGuide.jsx';
+import { hypothesisIdsOf, sentencePreview } from '../model/north-star-steps.mjs';
 
 const section = (number, title, body) => <section className="ns-section" aria-labelledby={`ns-${number}`}>
   <div className="section-label">NS-01 · {number}</div><h3 id={`ns-${number}`}>{title}</h3>{body}
 </section>;
 
-function Field({ name, value = '', save, canEdit, options, multiline = false, type = 'text', placeholder = '' }) {
-  const [text, setText] = useState(value);
-  const [error, setError] = useState('');
-  const timer = useRef();
-  const dirty = useRef(false);
-  const current = useRef(value);
-  current.current = text;
-  useEffect(() => { if (!dirty.current) setText(value); }, [value]);
-  useEffect(() => () => { clearTimeout(timer.current); if (dirty.current) save(current.current).catch(() => {}); }, []);
-  const commit = async next => {
-    clearTimeout(timer.current);
-    try {
-      await save(next);
-      if (current.current === next) dirty.current = false;
-      setError('');
-    } catch (e) {
-      if (options || type === 'checkbox') { setText(value); dirty.current = false; }
-      setError(`${e.message || 'Save failed.'} ${options || type === 'checkbox' ? 'The earlier value is still saved.' : 'Your text is still here. Try again.'}`);
-    }
-  };
-  if (!canEdit) return <div className="ns-field"><span className="ns-label">{name}</span><span className="ro">{value || 'Not recorded'}</span></div>;
-  const change = next => {
-    setText(next); current.current = next; dirty.current = true;
-    clearTimeout(timer.current); timer.current = setTimeout(() => commit(next), 650);
-  };
-  if (type === 'checkbox') return <label className="ns-tick"><input type="checkbox" checked={text === 'Yes'} onChange={e => change(e.target.checked ? 'Yes' : '')}
-    onBlur={() => { if (dirty.current) commit(current.current); }} />{name}<span className="ns-print-value">{text === 'Yes' ? 'Yes' : 'No'}</span>
-    {error && <span className="ns-error" role="alert">{error}</span>}</label>;
-  const props = {
-    value: text, 'aria-label': name, onChange: e => change(e.target.value),
-    onBlur: () => { if (dirty.current) commit(current.current); },
-  };
-  return <label className="ns-field"><span className="ns-label">{name}</span>
-    {options ? <select {...props}>{options.map(option => <option key={option} value={option}>{option || 'Choose…'}</option>)}</select> :
-      multiline ? <textarea {...props} rows="3" placeholder={placeholder} /> : <input {...props} type={type} placeholder={placeholder} />}
-    <span className="ns-print-value">{text || '—'}</span>
-    {error && <span className="ns-error" role="alert">{error}</span>}
-  </label>;
-}
-
-function Clock({ value, save, canEdit, blocks }) {
-  const [now, setNow] = useState(Date.now());
-  const [error, setError] = useState('');
-  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
-  let clock;
-  try { clock = JSON.parse(value || '{}'); } catch { clock = {}; }
-  const start = Date.parse(clock.startedAt || '');
-  const elapsed = (Number.isFinite(Number(clock.elapsed)) ? Number(clock.elapsed) : 0) +
-    (Number.isFinite(start) ? Math.max(0, (now - start) / 1000) : 0);
-  const minutes = elapsed / 60;
-  const blockNumber = Number(clock.block);
-  const blockIndex = Number.isFinite(blockNumber) ? Math.max(0, Math.min(blocks.length - 1, Math.floor(blockNumber))) : 0;
-  const current = blocks[blockIndex];
-  const end = Number(current.time.split('–')[1]);
-  const remaining = Math.max(0, Math.ceil(end * 60 - elapsed));
-  const over = minutes >= end;
-  const persist = next => save(JSON.stringify(next)).catch(e => setError(`${e.message || 'Clock save failed.'} Try again.`));
-  const toggle = () => persist(clock.startedAt
-    ? { ...clock, elapsed: Math.round(elapsed), startedAt: null }
-    : { ...clock, elapsed: Math.round(elapsed), startedAt: new Date().toISOString() });
-  const next = () => persist({ ...clock, block: Math.min(blocks.length - 1, blockIndex + 1) });
-  return <div className="ns-clock" role="timer" aria-live="off">
-    <strong>{String(Math.floor(elapsed / 60)).padStart(2, '0')}:{String(Math.floor(elapsed % 60)).padStart(2, '0')}</strong>
-    <span>Current block: {current.time} · {current.move}</span>
-    <span className={over ? 'ns-error' : ''}>{over ? `Block over by ${Math.floor((elapsed - end * 60) / 60)}:${String(Math.floor((elapsed - end * 60) % 60)).padStart(2, '0')}` : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')} left in block`}</span>
-    {canEdit && <button type="button" className="btn small" onClick={toggle}>{clock.startedAt ? 'Pause' : 'Start'}</button>}
-    {canEdit && blockIndex < blocks.length - 1 && <button type="button" className="btn small" onClick={next}>Next block</button>}
-    {error && <span className="ns-error" role="alert">{error}</span>}
-  </div>;
-}
-
-function csv(rows) {
-  return rows.map(row => row.map(cell => {
-    const text = String(cell ?? '');
-    const safe = /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text;
-    return `"${safe.replaceAll('"', '""')}"`;
-  }).join(',')).join('\r\n') + '\r\n';
-}
-
-function downloadCsv(rows) {
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([csv(rows)], { type: 'text/csv' }));
-  link.download = 'indago-north-star-hypotheses.csv';
-  document.body.append(link); link.click();
-  setTimeout(() => { URL.revokeObjectURL(link.href); link.remove(); }, 500);
-}
-
-export default function NorthStar({ state, canEdit, northStar, northStarActions, onOpen, onEvidence, files = [], fileActions }) {
-  const [history, setHistory] = useState(null);
-  const [message, setMessage] = useState('');
-  if (!northStar) return <p role="status">Loading North Star instrument…</p>;
+// The whole NS-01 record on one page: used for print, PDF and a full read-through.
+function FullRecord({ state, canEdit, northStar, northStarActions, onOpen, onEvidence, files = [], fileActions, run, showHistory }) {
   const { template: t, fields: f } = northStar;
   const save = key => value => northStarActions.save(key, value);
   const field = (key, name, options, multiline = false, type = 'text') => <Field key={key} name={name} value={f[key] || ''} save={save(key)} canEdit={canEdit}
     options={options} multiline={multiline} type={type} />;
   const questionIndex = (sectionIndex, index) => t.questions.slice(0, sectionIndex).reduce((sum, item) => sum + item.items.length, 0) + index;
-  const hypothesisIds = [...new Set([...t.hypotheses, ...Object.keys(f).map(key => key.match(/^hypothesis\.(NS-H-\d+)\./)?.[1]).filter(Boolean)])]
-    .sort((a, b) => Number(a.slice(5)) - Number(b.slice(5)));
-  const work = state.wbs.filter(w => w.gate === 'G2' || /north star/i.test(`${w.task} ${w.ws}`));
-  const agreed = ['horizon', 'identity', 'market', 'outcome', 'advantage', 'measures', 'principles'].map(key => f[`draft.${key}`] || `[${key}]`);
-  const preview = `By ${agreed[0]}, Indago will be ${agreed[1]} for ${agreed[2]}, enabling ${agreed[3]} through ${agreed[4]}, while achieving ${agreed[5]}, without compromising ${agreed[6]}.`;
-  const run = async action => { try { setMessage(''); await action(); setMessage('Saved.'); } catch (e) { setMessage(e.message || 'Action failed. Try again.'); } };
+  const hypothesisIds = hypothesisIdsOf(t, f);
+  const work = northStarWork(state);
+  const preview = sentencePreview(f);
   const jumpWork = id => { onOpen('plan'); setTimeout(() => document.getElementById(`wbs-${id}`)?.scrollIntoView({ block: 'center' }), 30); };
-  const showHistory = async () => run(async () => setHistory(history ? null : await northStarActions.history()));
-  const exportHypotheses = () => downloadCsv([['ID', 'Hypothesis / fact', 'Evidence required', 'Owner', 'Due', 'GDXP linkage', 'Evidence request'],
-    ...hypothesisIds.map(id => [id, ...['fact', 'evidence', 'owner', 'due', 'link', 'request'].map(key => f[`hypothesis.${id}.${key}`] || '')])]);
 
-  return <div className="north-star">
-    <div className="ns-head"><div><div className="section-label">Internal facilitator instrument · {t.edition}</div>
-      <h2 className="section-title">North Star</h2><p className="lead">{t.purpose.replace(/^Purpose: /, '')}</p></div>
-      <div className="ns-actions"><button type="button" className="btn small" onClick={() => { document.querySelector('.ns-guardrails').open = true; window.print(); }}>Print or save PDF</button>
-        <button type="button" className="btn small" onClick={showHistory}>Change history</button></div></div>
-    {message && <p className="hint" role="status">{message}</p>}
-    {history && <aside className="ns-history" aria-label="North Star change history"><h3>Change history</h3><ol>
-      {history.map(item => <li key={item.id}><b>{item.field_key}</b>: {item.old_value || 'Empty'} → {item.new_value || 'Empty'} · {item.actor} · {new Date(item.changed_at).toLocaleString('en-GB')}</li>)}
-    </ol></aside>}
-
+  return <div className="ns-record">
     <details className="ns-guardrails" open><summary>1 · Facilitation mandate and guardrails</summary><ol>{t.guardrails.map(rule => <li key={rule}>{rule}</li>)}</ol></details>
 
     {section(2, 'Existing strategic baseline', <><p className="note">{t.baselineNote}</p><div className="ns-list">{t.baseline.map((row, i) =>
@@ -169,7 +69,7 @@ export default function NorthStar({ state, canEdit, northStar, northStarActions,
       <h4>{check}</h4><div className="ns-grid">{field(`convergence.${i}.answer`, 'Answer', ['', 'Yes', 'No', 'Partly'])}
         {field(`convergence.${i}.note`, 'Note', null, true)}</div></article>)}</div>)}
 
-    {section(9, 'Post-workshop action and evidence handoff', <><div className="ns-actions"><button type="button" className="btn small" onClick={exportHypotheses}>Export hypotheses CSV</button>
+    {section(9, 'Post-workshop action and evidence handoff', <><div className="ns-actions"><button type="button" className="btn small" onClick={() => exportHypotheses(f, hypothesisIds)}>Export hypotheses CSV</button>
       {canEdit && <button type="button" className="btn small" onClick={() => run(() => northStarActions.addHypothesis())}>Add hypothesis row</button>}</div>
       <div className="ns-list">{hypothesisIds.map(id => <article className="ns-item" key={id}><h4>{id}</h4><div className="ns-grid">
         {field(`hypothesis.${id}.fact`, 'Hypothesis / fact to verify', null, true)}{field(`hypothesis.${id}.evidence`, 'Evidence required', null, true)}
@@ -193,5 +93,48 @@ export default function NorthStar({ state, canEdit, northStar, northStarActions,
       {work.length ? <ul>{work.map(item => <li key={item.id}><button type="button" className="link-button" onClick={() => jumpWork(item.id)}>{item.id} · {item.task}</button>
         <Deliverables id={item.id} files={files.filter(file => file.work_package_id === item.id)} canEdit={canEdit} fileActions={fileActions} /></li>)}</ul> : <p className="note">No North Star work package was found in the current plan.</p>}
     </section>
+  </div>;
+}
+
+const VIEW_KEY = 'indago-ns-view';
+const readView = () => { try { return localStorage.getItem(VIEW_KEY) === 'record' ? 'record' : 'guided'; } catch { return 'guided'; } };
+
+export default function NorthStar(props) {
+  const { northStar, northStarActions } = props;
+  const [history, setHistory] = useState(null);
+  const [message, setMessage] = useState('');
+  const [view, setViewState] = useState(readView);
+  const setView = next => { setViewState(next); try { localStorage.setItem(VIEW_KEY, next); } catch { /* private mode */ } };
+  // Print always uses the full record, whichever view is open.
+  const [printing, setPrinting] = useState(false);
+  useEffect(() => {
+    const before = () => flushSync(() => setPrinting(true));
+    const after = () => setPrinting(false);
+    window.addEventListener('beforeprint', before);
+    window.addEventListener('afterprint', after);
+    return () => { window.removeEventListener('beforeprint', before); window.removeEventListener('afterprint', after); };
+  }, []);
+  if (!northStar) return <p role="status">Loading North Star instrument…</p>;
+  const { template: t } = northStar;
+  const run = async action => { try { setMessage(''); await action(); setMessage('Saved.'); } catch (e) { setMessage(e.message || 'Action failed. Try again.'); } };
+  const showHistory = async () => run(async () => setHistory(history ? null : await northStarActions.history()));
+  const print = () => { flushSync(() => setPrinting(true)); const guard = document.querySelector('.ns-guardrails'); if (guard) guard.open = true; window.print(); };
+  const record = view === 'record' || printing;
+
+  return <div className="north-star">
+    <div className="ns-head"><div><div className="section-label">{t.edition}</div>
+      <h2 className="section-title">North Star</h2><p className="lead">{t.purpose.replace(/^Purpose: /, '')}</p></div>
+      <div className="ns-actions">
+        <div className="ns-view" role="group" aria-label="North Star view">
+          <button type="button" className="ns-chip" aria-pressed={!record} onClick={() => setView('guided')}>Guided</button>
+          <button type="button" className="ns-chip" aria-pressed={record} onClick={() => setView('record')}>Full record</button>
+        </div>
+        <button type="button" className="btn small" onClick={print}>Print or save PDF</button>
+        <button type="button" className="btn small" onClick={showHistory}>Change history</button></div></div>
+    {message && <p className="hint" role="status">{message}</p>}
+    {history && <aside className="ns-history" aria-label="North Star change history"><h3>Change history</h3><ol>
+      {history.map(item => <li key={item.id}><b>{item.field_key}</b>: {item.old_value || 'Empty'} → {item.new_value || 'Empty'} · {item.actor} · {new Date(item.changed_at).toLocaleString('en-GB')}</li>)}
+    </ol></aside>}
+    {record ? <FullRecord {...props} run={run} showHistory={showHistory} /> : <NorthStarGuide {...props} run={run} showHistory={showHistory} onFullRecord={() => setView('record')} />}
   </div>;
 }
