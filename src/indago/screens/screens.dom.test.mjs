@@ -187,7 +187,9 @@ test('North Star opens as a guided path, one small step at a time', async () => 
   const before = errors.length;
   const ns = renderNorthStar();
   assert.equal(ns.el.querySelectorAll('.ns-card').length, 1, 'one step card');
-  assert.match(ns.el.querySelector('.ns-card-meta').textContent, /Step 1 of 7/);
+  assert.match(ns.el.querySelector('.ns-progress-text').textContent, /^Step 1 of 7 · 0 recorded/);
+  assert.equal(ns.el.querySelector('.ns-head .lead'), null, 'guided keeps the header to one line');
+  assert.ok(ns.button('Print or save PDF') && ns.button('Change history'), 'print and history stay available under Tools');
   assert.equal(ns.el.querySelectorAll('.ns-rail li').length, 10, 'ten parts in the journey');
   // Walk every step: none shows more than five inputs.
   for (let guard = 0; guard < 120 && (ns.button('Next') || ns.button('Finish this part')); guard++) {
@@ -215,6 +217,7 @@ test('choosing a chip saves and ticks the step; finishing a part says so', async
   assert.match(ns.el.querySelector('.ns-finish').textContent, /done/);
   assert.ok(ns.el.querySelector('.ns-rail button.complete'), 'the part is ticked in the journey');
   assert.match(ns.el.querySelector('.ns-overall-text').textContent, /^7 of \d+ steps recorded/);
+  assert.match(ns.el.querySelector('.ns-rail-count').textContent, /^7\/7/);
   ns.unmount();
 });
 

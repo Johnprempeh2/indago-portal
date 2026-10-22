@@ -122,19 +122,20 @@ export default function NorthStar(props) {
   const record = view === 'record' || printing;
 
   return <div className="north-star">
-    <div className="ns-head"><div><div className="section-label">{t.edition}</div>
-      <h2 className="section-title">North Star</h2><p className="lead">{t.purpose.replace(/^Purpose: /, '')}</p></div>
+    {/* Guided keeps the header to one line so the first step is in view; print and history move to its Tools toggle. */}
+    <div className={`ns-head${record ? '' : ' compact'}`}><div>{record && <div className="section-label">{t.edition}</div>}
+      <h2 className="section-title">North Star</h2>{record && <p className="lead">{t.purpose.replace(/^Purpose: /, '')}</p>}</div>
       <div className="ns-actions">
         <div className="ns-view" role="group" aria-label="North Star view">
           <button type="button" className="ns-chip" aria-pressed={!record} onClick={() => setView('guided')}>Guided</button>
           <button type="button" className="ns-chip" aria-pressed={record} onClick={() => setView('record')}>Full record</button>
         </div>
-        <button type="button" className="btn small" onClick={print}>Print or save PDF</button>
-        <button type="button" className="btn small" onClick={showHistory}>Change history</button></div></div>
+        {record && <><button type="button" className="btn small" onClick={print}>Print or save PDF</button>
+          <button type="button" className="btn small" onClick={showHistory}>Change history</button></>}</div></div>
     {message && <p className="hint" role="status">{message}</p>}
     {history && <aside className="ns-history" aria-label="North Star change history"><h3>Change history</h3><ol>
       {history.map(item => <li key={item.id}><b>{item.field_key}</b>: {item.old_value || 'Empty'} → {item.new_value || 'Empty'} · {item.actor} · {new Date(item.changed_at).toLocaleString('en-GB')}</li>)}
     </ol></aside>}
-    {record ? <FullRecord {...props} run={run} showHistory={showHistory} /> : <NorthStarGuide {...props} run={run} showHistory={showHistory} onFullRecord={() => setView('record')} />}
+    {record ? <FullRecord {...props} run={run} showHistory={showHistory} /> : <NorthStarGuide {...props} run={run} showHistory={showHistory} onPrint={print} onFullRecord={() => setView('record')} />}
   </div>;
 }

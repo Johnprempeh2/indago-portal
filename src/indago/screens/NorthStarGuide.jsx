@@ -10,7 +10,7 @@ const writeStored = (key, value) => { try { localStorage.setItem(key, value); } 
 
 // The guided North Star path: one small step at a time, with visible progress.
 // It edits the same fields as the full record, through the same save action.
-export default function NorthStarGuide({ state, canEdit, northStar, northStarActions, onOpen, onEvidence, files = [], fileActions, run, showHistory, onFullRecord }) {
+export default function NorthStarGuide({ state, canEdit, northStar, northStarActions, onOpen, onEvidence, files = [], fileActions, run, showHistory, onPrint, onFullRecord }) {
   const { template: t, fields: f } = northStar;
   const sections = northStarSections(t, f);
   const progress = northStarProgress(sections);
@@ -66,14 +66,17 @@ export default function NorthStarGuide({ state, canEdit, northStar, northStarAct
   const hasMore = guide.length > 0 || item.evidence || item.history;
 
   return <div className="ns-guide">
+    {/* The overall count is a quiet detail; the current part and step lead (GRE-1893). */}
     <div className="ns-overall">
-      <div className="ns-overall-text"><b>{progress.done} of {progress.total}</b> steps recorded
-        <span className="ns-save" role="status" aria-live="polite">{pending ? 'Saving…' : saved ? 'All changes saved' : canEdit ? 'Saves as you go' : 'Read only'}</span></div>
-      <div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent} aria-label="North Star progress"><span style={{ width: `${progress.percent}%` }} /></div>
-      <div className="ns-tools">
-        <details className="ns-more"><summary>Facilitator guide</summary><ol>{t.guardrails.map(rule => <li key={rule}>{rule}</li>)}</ol></details>
-        <details className="ns-more"><summary>Workshop timer</summary><Clock value={f['show.clock']} save={save('show.clock')} canEdit={canEdit} blocks={t.runOfShow} /></details>
-      </div>
+      <p className="ns-overall-text"><span>{progress.done} of {progress.total} steps recorded</span>
+        <span className="ns-save" role="status" aria-live="polite">{pending ? 'Saving…' : saved ? 'All changes saved' : canEdit ? 'Saves as you go' : 'Read only'}</span></p>
+      <details className="ns-more ns-tools"><summary>Tools and guide</summary><div className="ns-tools-panel">
+        <p>{t.purpose.replace(/^Purpose: /, '')}</p>
+        <h4>Facilitator guide</h4><ol>{t.guardrails.map(rule => <li key={rule}>{rule}</li>)}</ol>
+        <h4>Workshop timer</h4><Clock value={f['show.clock']} save={save('show.clock')} canEdit={canEdit} blocks={t.runOfShow} />
+        <div className="ns-actions"><button type="button" className="btn small" onClick={onPrint}>Print or save PDF</button>
+          <button type="button" className="btn small" onClick={showHistory}>Change history</button></div>
+      </div></details>
     </div>
 
     <div className="ns-journey">
@@ -103,13 +106,18 @@ export default function NorthStarGuide({ state, canEdit, northStar, northStarAct
           </div>
         </div> : section.total === 0 ? <div className="ns-card"><h4 ref={heading} tabIndex={-1}>No steps yet</h4>
           {canEdit && <button type="button" className="btn ns-primary" onClick={() => addHypothesis()}>Add a hypothesis</button>}</div> : <>
-          <div className="ns-steps" aria-label={`Steps in ${section.title}`} role="group">
-            {section.steps.map((s, i) => <button key={s.id} type="button" className={`ns-pip${s.done ? ' done' : ''}`} aria-current={i === stepIndex ? 'step' : undefined}
-              aria-label={`Step ${i + 1}${s.done ? ', recorded' : ''}`} onClick={() => go({ section: pos.section, step: i })} />)}
+          <div className="ns-progress">
+            <span className="ns-progress-text"><b>Step {stepIndex + 1} of {section.total}</b> · {section.done} recorded</span>
+            {/* Laptop: one pip per step. Phone: a single bar, so long parts never wrap. */}
+            <div className="ns-steps" aria-label={`Steps in ${section.title}`} role="group">
+              {section.steps.map((s, i) => <button key={s.id} type="button" className={`ns-pip${s.done ? ' done' : ''}`} aria-current={i === stepIndex ? 'step' : undefined}
+                aria-label={`Step ${i + 1}${s.done ? ', recorded' : s.started ? ', started' : ''}`} onClick={() => go({ section: pos.section, step: i })} />)}
+            </div>
+            <div className="bar ns-progress-bar" aria-hidden="true"><span style={{ width: `${Math.round(section.done / section.total * 100)}%` }} /></div>
           </div>
 
           <article className="ns-card" key={item.id}>
-            <div className="ns-card-meta">{item.kicker && <span>{item.kicker}</span>}<span>Step {stepIndex + 1} of {section.total}</span>{item.done && <span className="ns-check">✓ Recorded</span>}</div>
+            <div className="ns-card-meta">{item.kicker && <span>{item.kicker}</span>}{item.done ? <span className="ns-check">✓ Recorded</span> : item.started && <span>Started</span>}</div>
             <h4 ref={heading} tabIndex={-1}>{item.title}</h4>
             {item.purpose && <p className="ns-purpose">{item.purpose}</p>}
             {toggles.length > 0 && <div className="ns-chips">{toggles.map(spec => <Toggle key={spec.key} name={spec.label} value={f[spec.key] || ''} save={save(spec.key)} canEdit={canEdit} />)}</div>}
