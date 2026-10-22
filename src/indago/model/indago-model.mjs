@@ -123,6 +123,12 @@ export function wbsGroups(state, rows) {
   return groups;
 }
 
+// The workstream to show first: the first with work not yet complete, else the first (GRE-1891).
+export function focusWorkstream(state) {
+  const names = uniq(state.wbs.map((w) => w.ws));
+  return names.find((n) => state.wbs.some((w) => w.ws === n && w.status !== 'Complete')) || names[0] || '';
+}
+
 // The gate to show first: the one asked for, else the next gate not yet approved, else the last.
 export function focusGate(state, wanted = '') {
   const g = state.gates.find((x) => x.id === wanted) || state.gates.find((x) => !isApproved(x)) || state.gates[state.gates.length - 1];

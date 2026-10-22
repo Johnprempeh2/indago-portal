@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { OPT } from '../model/options.mjs';
-import { filterWbs, EMPTY_WBS_FILTER, ganttCells, depsOpen, pct, uniq, weekLabel, wbsById, wbsGroups, controlSummary } from '../model/indago-model.mjs';
+import { filterWbs, EMPTY_WBS_FILTER, ganttCells, depsOpen, pct, uniq, weekLabel, wbsById, wbsGroups, controlSummary, focusWorkstream } from '../model/indago-model.mjs';
 import { Bar, EditSelect, EditText, FilterSelect, Governs, Pill } from './ui.jsx';
 
 export function Deliverables({ id, files, canEdit, fileActions }) {
@@ -36,6 +36,8 @@ export function Deliverables({ id, files, canEdit, fileActions }) {
   </details>;
 }
 
+const ALL = '';
+
 // One work package: what it is and its status on the main path; owner,
 // dates, evidence, blocker and files behind "Details" (GRE-1891).
 function WorkPackage({ w, state, canEdit, edit, files, fileActions, onOpen, hideNorthStar }) {
@@ -49,7 +51,7 @@ function WorkPackage({ w, state, canEdit, edit, files, fileActions, onOpen, hide
         <span className="wp-tick" aria-hidden="true">{w.status === 'Complete' ? '✓' : ''}</span>
         <div className="wp-what">
           <div className="wp-title"><span className="id">{w.id}</span> {w.task}</div>
-          <div className="wp-meta">{w.person || w.role} · {period} · {w.gate}
+          <div className="wp-meta">{w.person ? <>Owner: {w.person}</> : <>Role: {w.role} · <span className="warn-text">no named owner</span></>} · {period} · {w.gate}
             {!!files.length && <> · <span className="file-count" aria-label={`${files.length} deliverables`}>{files.length}</span> {files.length === 1 ? 'file' : 'files'}</>}
           </div>
           {!hideNorthStar && (w.gate === 'G2' || /north star/i.test(`${w.task} ${w.ws}`)) && <button type="button" className="link-button small" onClick={() => onOpen('north-star')}>Open North Star instrument</button>}
@@ -82,19 +84,30 @@ function WorkPackage({ w, state, canEdit, edit, files, fileActions, onOpen, hide
   );
 }
 
-// The Work plan as a short list per workstream, each with its own progress (GRE-1891).
+// The Work plan one workstream at a time, with the workstreams as a journey
+// above it and "All work packages" to browse everything (GRE-1891).
 export default function WorkPlan({ state, canEdit, actions, files = [], fileActions, onOpen, hideNorthStar = false, jump }) {
   const [f, setF] = useState(() => ({ ...EMPTY_WBS_FILTER, ...jump?.filter }));
-  const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
+  const [view, setView] = useState(() => jump?.filter ? ALL : focusWorkstream(state));
+  // A new search or filter looks across every workstream.
+  const set = (k) => (v) => { setF((x) => ({ ...x, [k]: v })); setView(ALL); };
   const rows = filterWbs(state, f);
   const s = controlSummary(state);
   const more = ['ws', 'gate', 'role'].filter((k) => f[k]).length;
+  const streams = wbsGroups(state, state.wbs);
+  const groups = wbsGroups(state, rows).filter((g) => view === ALL || g.name === view);
+  const i = streams.findIndex((g) => g.name === view);
+  const prev = streams[i - 1];
+  const next = i >= 0 ? streams[i + 1] : undefined;
+  const steps = useRef(null);
+  // Back and Next sit below the list, so bring the new workstream's top into view.
+  const go = (name) => { setView(name); steps.current?.scrollIntoView?.({ block: 'start' }); };
 
   return (
     <>
       <Governs>Master Project Plan · Work Breakdown</Governs>
       <h2 className="section-title">Work plan</h2>
-      <p className="lead">Change a status as the work moves. Open <b>Details</b> for the owner, dates, evidence and files.</p>
+      <p className="lead">One workstream at a time. Change a status as the work moves. Open <b>Details</b> for the owner, dates, evidence and files.</p>
 
       <div className="wp-progress" aria-label="Plan progress">
         <span className="ns-progress-text"><b>{s.done} of {s.total}</b> complete · {s.inProgress} in progress{s.blocked ? <> · <span className="warn-text">{s.blocked} blocked</span></> : null}</span>
@@ -113,6 +126,25 @@ export default function WorkPlan({ state, canEdit, actions, files = [], fileActi
         <span className="hint">{state.kickoff ? 'Periods show calendar weeks from this date.' : 'Not set. W1–W4 are planning assumptions until dates are agreed at kick-off.'}</span>
       </div>
 
+      <ol ref={steps} className="gt-steps ws-steps" aria-label="Workstreams">
+        {streams.map((g, n) => {
+          const done = g.done === g.total;
+          return (
+            <li key={g.name}>
+              <button type="button" className={`gt-step${done ? ' ok' : ''}`} aria-pressed={view === g.name} onClick={() => setView(g.name)}>
+                <span className="cc-dot" aria-hidden="true">{done ? '✓' : n + 1}</span>
+                <span className="gt-step-text"><b>{g.name}</b> {g.done} of {g.total} complete</span>
+              </button>
+            </li>
+          );
+        })}
+        <li>
+          <button type="button" className="gt-step ws-all" aria-pressed={view === ALL} onClick={() => setView(ALL)}>
+            <span className="gt-step-text"><b>All</b> <span className="ws-all-more">{state.wbs.length} work packages</span></span>
+          </button>
+        </li>
+      </ol>
+
       <div id="wbs-toolbar" className="toolbar">
         <input type="search" value={f.q} onChange={(e) => set('q')(e.target.value)} placeholder="Search work packages" aria-label="Search work packages" />
         <FilterSelect value={f.status} onChange={set('status')} all="All statuses" options={OPT.wbsStatus} label="Status" />
@@ -124,11 +156,11 @@ export default function WorkPlan({ state, canEdit, actions, files = [], fileActi
             <FilterSelect value={f.role} onChange={set('role')} all="All roles" options={uniq(state.wbs.map((w) => w.role)).sort()} label="Accountable role" />
           </div>
         </details>
-        <span className="count" aria-live="polite">{rows.length} of {state.wbs.length} work packages</span>
+        <span className="count" aria-live="polite">{groups.reduce((n, g) => n + g.items.length, 0)} of {state.wbs.length} work packages</span>
       </div>
 
-      {!rows.length && <p className="empty">No work packages match the filter.</p>}
-      {wbsGroups(state, rows).map((g) => (
+      {!groups.length && <p className="empty">No work packages match the filter{view !== ALL ? ' in this workstream' : ''}.</p>}
+      {groups.map((g) => (
         <section key={g.name} className={`wp-group${g.done === g.total ? ' done' : ''}`} aria-label={g.name}>
           <div className="wp-group-head">
             <h3>{g.name}</h3>
@@ -143,6 +175,13 @@ export default function WorkPlan({ state, canEdit, actions, files = [], fileActi
           </ol>
         </section>
       ))}
+
+      {view !== ALL && (
+        <div className="gate-nav ws-nav">
+          {prev ? <button type="button" className="cc-go" onClick={() => go(prev.name)}>← {prev.name}</button> : <span />}
+          {next && <button type="button" className="cc-go primary" onClick={() => go(next.name)}>{next.name} →</button>}
+        </div>
+      )}
     </>
   );
 }

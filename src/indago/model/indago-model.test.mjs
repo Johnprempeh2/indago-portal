@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { demoState } from '../fixture/demo-state.mjs';
 import {
   controlSummary, depsOpen, weekLabel, filterWbs, EMPTY_WBS_FILTER, ganttCells, heatGrid, nextId,
-  calcCell, filterRegRows, traceSummary, lookup, sheetRows, toCsv, wbsGroups, focusGate, riskSummary,
+  calcCell, filterRegRows, traceSummary, lookup, sheetRows, toCsv, wbsGroups, focusGate, focusWorkstream, riskSummary,
 } from './indago-model.mjs';
 import { reduce } from './local-store.mjs';
 
@@ -144,6 +144,15 @@ test('work packages group by workstream; counts cover the whole workstream, not 
   const blocked = wbsGroups(st, filterWbs(st, { ...EMPTY_WBS_FILTER, status: 'Blocked' }));
   for (const g of blocked) assert.equal(g.total, st.wbs.filter((w) => w.ws === g.name).length);
   assert.ok(blocked.every((g) => g.items.every((w) => w.status === 'Blocked')));
+});
+
+test('the Work plan opens on the first workstream with work still open', () => {
+  const st = demoState();
+  assert.equal(focusWorkstream(st), 'Evidence confirmation');
+  st.wbs.filter((w) => w.ws === 'Evidence confirmation').forEach((w) => { w.status = 'Complete'; });
+  assert.equal(focusWorkstream(st), 'North Star');
+  st.wbs.forEach((w) => { w.status = 'Complete'; });
+  assert.equal(focusWorkstream(st), 'Evidence confirmation');
 });
 
 test('the Gates screen opens on the gate asked for, else the next one to approve', () => {

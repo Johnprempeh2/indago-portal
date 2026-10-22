@@ -2,7 +2,7 @@ import React from 'react';
 import { heatGrid, riskSummary } from '../model/indago-model.mjs';
 import { EditSelect, EditText, Governs } from './ui.jsx';
 
-// One risk: likelihood, impact, owner and status on the main path; the
+// One risk: likelihood, impact, status and owner on the main path; the
 // wording and the response behind a toggle, open for a new, empty risk (GRE-1891).
 function Risk({ r, canEdit, actions }) {
   const edit = (field) => (value) => actions.updateRisk(r.id, field, value);
@@ -14,8 +14,8 @@ function Risk({ r, canEdit, actions }) {
       <div className="rk-fields">
         <label><span>Likelihood</span><EditSelect canEdit={canEdit} options="lmh" value={r.l} onCommit={edit('l')} label={lbl('Likelihood')} /></label>
         <label><span>Impact</span><EditSelect canEdit={canEdit} options="lmh" value={r.i} onCommit={edit('i')} label={lbl('Impact')} /></label>
-        <label><span>Owner</span><EditText canEdit={canEdit} value={r.owner} onCommit={edit('owner')} label={lbl('Owner')} placeholder="Add owner" /></label>
         <label><span>Status</span><EditSelect canEdit={canEdit} options="riskStatus" value={r.status} onCommit={edit('status')} label={lbl('Status')} /></label>
+        <label className="rk-owner"><span>Owner</span><EditText canEdit={canEdit} value={r.owner} onCommit={edit('owner')} label={lbl('Owner')} placeholder="Add owner" /></label>
       </div>
       <details className="ns-more" open={!r.risk || undefined}>
         <summary>Wording and response</summary>

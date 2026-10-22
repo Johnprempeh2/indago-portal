@@ -302,24 +302,44 @@ test('"See blocked work" lands on the Work plan filtered to blocked packages', (
 const onMainPath = (root) => [...root.querySelectorAll('input:not([type=search]), select, textarea')]
   .filter((x) => !x.closest('details:not([open])') && !x.closest('.toolbar'));
 
-test('Work plan lists work packages by workstream with status first and the rest behind Details', () => {
+test('Work plan shows one workstream at a time with status first and the rest behind Details', () => {
   const state = lib.demoState();
   const { el, calls, unmount } = render(lib.SCREENS.WorkPlan, { state });
-  assert.equal(el.querySelectorAll('.wp-group').length, 6, 'one group per workstream');
+  assert.equal(el.querySelectorAll('.ws-steps .gt-step').length, 7, 'six workstreams and All');
+  assert.equal(el.querySelectorAll('.wp-group').length, 1, 'one workstream shown');
+  assert.equal(el.querySelector('.wp-group').getAttribute('aria-label'), 'Evidence confirmation', 'opens on the first open workstream');
   assert.match(el.querySelector('.wp-group-head').textContent, /2 of 3 complete/);
   const cards = [...el.querySelectorAll('li.wp')];
-  assert.equal(cards.length, 18);
+  assert.equal(cards.length, 3);
   for (const card of cards) {
     assert.deepEqual(onMainPath(card).map((x) => x.getAttribute('aria-label')), [`Status for ${card.id.slice(4)}`], `${card.id} shows only its status`);
-    assert.ok(card.querySelector('details:not([open]) [aria-label^="Named owner"]'), `${card.id} keeps the owner behind Details`);
+    assert.ok(card.querySelector('details:not([open]) [aria-label^="Named owner"]'), `${card.id} keeps the owner field behind Details`);
   }
-  assert.equal(el.querySelectorAll('li.wp.done .wp-tick').length, state.wbs.filter((w) => w.status === 'Complete').length, 'complete work is ticked');
-  const blocker = el.querySelector('li.wp.blocked .wp-blocker');
-  assert.match(blocker.textContent, /Blocker: Waiting for a demo decision/, 'the blocker shows without opening Details');
+  assert.match(el.querySelector('#wbs-1\\.01 .wp-meta').textContent, /^Owner: Demo Person/, 'a named owner is labelled as the owner');
+  assert.match(el.querySelector('#wbs-1\\.02 .wp-meta').textContent, /^Role: Evidence controller · no named owner/, 'a role is not passed off as an owner');
+  assert.equal(el.querySelectorAll('li.wp.done .wp-tick').length, 2, 'complete work is ticked');
   const select = el.querySelector('select[aria-label="Status for 1.03"]');
   select.value = 'Complete';
   lib.flushSync(() => select.dispatchEvent(new win.Event('change', { bubbles: true })));
   assert.deepEqual(calls.filter((c) => c[0] === 'updateWbs'), [['updateWbs', '1.03', 'status', 'Complete']]);
+
+  lib.flushSync(() => el.querySelector('.ws-nav .cc-go.primary').click());
+  assert.equal(el.querySelector('.wp-group').getAttribute('aria-label'), 'North Star', 'Next goes to the next workstream');
+  const blocker = el.querySelector('li.wp.blocked .wp-blocker');
+  assert.match(blocker.textContent, /Blocker: Waiting for a demo decision/, 'the blocker shows without opening Details');
+
+  lib.flushSync(() => el.querySelector('.ws-all').click());
+  assert.equal(el.querySelectorAll('.wp-group').length, 6, 'All lists every workstream');
+  assert.equal(el.querySelectorAll('li.wp').length, 18);
+  assert.equal(el.querySelector('.ws-nav'), null, 'no Back or Next in the All view');
+
+  lib.flushSync(() => [...el.querySelectorAll('.ws-steps .gt-step')][3].click());
+  assert.equal(el.querySelector('.wp-group').getAttribute('aria-label'), 'Commercial economics');
+  const status = el.querySelector('select[aria-label="Status"]');
+  status.value = 'Blocked';
+  lib.flushSync(() => status.dispatchEvent(new win.Event('change', { bubbles: true })));
+  assert.ok(el.querySelector('.ws-all[aria-pressed="true"]'), 'a filter looks across every workstream');
+  assert.deepEqual([...el.querySelectorAll('li.wp')].map((li) => li.id), ['wbs-2.02', 'wbs-4.03']);
   unmount();
 });
 
