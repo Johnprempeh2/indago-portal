@@ -29,7 +29,9 @@ export function sentencePreview(fields) {
   return `By ${agreed[0]}, Indago will be ${agreed[1]} for ${agreed[2]}, enabling ${agreed[3]} through ${agreed[4]}, while achieving ${agreed[5]}, without compromising ${agreed[6]}.`;
 }
 
-export function northStarSections(t, f) {
+// `facilitator` changes only the wording: client users get plain session
+// headings, not the timed run of show or Greatstone's own cues (GRE-1942).
+export function northStarSections(t, f, { facilitator = false } = {}) {
   const any = keys => keys.some(key => filled(f[key]));
   const step = (id, props) => ({ id, ...props, done: props.done(f), started: any(props.fields.map(field => field.key)) });
   let q = 0;
@@ -47,17 +49,17 @@ export function northStarSections(t, f) {
       })),
     },
     {
-      id: 'show', number: 3, title: 'Run the 90-minute session',
-      purpose: 'Keep time and note what came out of each block.',
+      id: 'show', number: 3, title: facilitator ? 'Run the 90-minute session' : 'Session notes',
+      purpose: facilitator ? 'Keep time and note what came out of each block.' : 'Note what came out of each part of the session.',
       steps: t.runOfShow.map((block, i) => step(`show-${i}`, {
-        kicker: `Minutes ${block.time}`, title: block.move, purpose: `Aim: ${block.outcome}`,
+        ...(facilitator ? { kicker: `Minutes ${block.time}`, title: block.move, purpose: `Aim: ${block.outcome}` } : { kicker: `Part ${i + 1}`, title: block.outcome }),
         fields: [long(`show.${i}.notes`, 'Session notes', 'Short notes are fine, for example the three points people agreed on.')],
         done: () => filled(f[`show.${i}.notes`]), open: true,
       })),
     },
     {
       id: 'questions', number: 4, title: 'Ask the hard questions',
-      purpose: 'One question at a time. Record Gordon’s words first, then your note.',
+      purpose: facilitator ? 'One question at a time. Record Gordon’s words first, then your note.' : 'One question at a time. Record Gordon’s words.',
       // Facilitators only (GRE-1942): the interpretation field is theirs.
       facilitatorGuide: ['Record Gordon’s words before drafting a Greatstone interpretation. These are separate fields.'],
       steps: t.questions.flatMap(group => group.items.map(question => {
@@ -99,7 +101,8 @@ export function northStarSections(t, f) {
         step('draft-measures', { title: 'Measures and principles', preview: true,
           fields: [text('draft.measures', 'Measurable business outcomes', 'Two or three numbers'), text('draft.principles', 'Principles', 'What must not be compromised')],
           done: () => ['measures', 'principles'].every(key => filled(f[`draft.${key}`])) }),
-        step('draft-words', { title: 'Agree the wording', purpose: 'Keep Gordon’s words, our challenge and the agreed text apart.', history: true,
+        step('draft-words', { title: 'Agree the wording', history: true,
+          purpose: facilitator ? 'Keep Gordon’s words, our challenge and the agreed text apart.' : 'Keep Gordon’s words and the agreed text apart.',
           fields: [long('draft.verbatim', 'Gordon’s original words (verbatim)', 'Write the sentence as Gordon said it.'),
             long('draft.challenge', 'Greatstone challenge / alternative (hypothesis)', 'A sharper or bolder version to test.'),
             long('draft.agreed', 'Candidate North Star — agreed in session', 'The wording everyone in the room accepted.')],

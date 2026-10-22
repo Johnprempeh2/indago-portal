@@ -22,6 +22,11 @@ function Demo() {
     'question.0.verbatim': 'Invented workshop note: we want clients to make decisions with confidence.',
     'hypothesis.NS-H-01.fact': 'Invented hypothesis about client decision use cases.',
   } });
+  // Invented change history, with one Greatstone note, so the client filter can be seen (GRE-1942).
+  const [changes, setChanges] = useState([
+    { id: 'demo-h-1', field_key: 'question.0.verbatim', old_value: '', new_value: 'Invented workshop note: we want clients to make decisions with confidence.', actor: 'Demo Client', changed_at: '2026-10-20T09:10:00Z' },
+    { id: 'demo-h-2', field_key: 'question.0.interpretation', old_value: '', new_value: 'Invented Greatstone note: confidence matters more than speed.', actor: 'Demo Facilitator', changed_at: '2026-10-20T09:12:00Z' },
+  ]);
   const actions = useMemo(() => bindActions(dispatch), []);
   const canEdit = !new URLSearchParams(location.search).has('viewer');
   const facilitator = new URLSearchParams(location.search).has('facilitator');
@@ -46,6 +51,7 @@ function Demo() {
       if (key === 'approval.status' && value.startsWith('Approved') && northStar.fields['convergence.6.answer'] !== 'Yes') {
         throw new Error('Record participant acceptance as Yes before approval.');
       }
+      setChanges(current => [{ id: `demo-h-${Date.now()}`, field_key: key, old_value: northStar.fields[key] || '', new_value: value, actor: 'Demo Person', changed_at: new Date().toISOString() }, ...current]);
       setNorthStar(current => ({ ...current, fields: { ...current.fields, [key]: value } }));
     },
     addHypothesis: async () => {
@@ -55,7 +61,7 @@ function Demo() {
       return { id };
     },
     sendHypothesis: async id => setNorthStar(current => ({ ...current, fields: { ...current.fields, [`hypothesis.${id}.request`]: 'DEMO-RQ-001' } })),
-    history: async () => [],
+    history: async () => changes,
   };
   return <IndagoApp store={{ state, canEdit, facilitator, actions, files, fileActions, northStar, northStarActions }} status={<span className="badge">Demo data</span>} />;
 }

@@ -15,7 +15,7 @@ const writeStored = (key, value) => { try { localStorage.setItem(key, value); } 
 // are for facilitators only (GRE-1942).
 export default function NorthStarGuide({ state, canEdit, northStar, northStarActions, onOpen, onEvidence, files = [], fileActions, run, showHistory, onPrint, onFullRecord, facilitator = false }) {
   const { template: t, fields: f } = northStar;
-  const sections = northStarSections(t, f);
+  const sections = northStarSections(t, f, { facilitator });
   const progress = northStarProgress(sections);
   const placeKey = `indago-ns-step:${t.id}`;
   const [pos, setPos] = useState(() => startPosition(sections, readStored(placeKey)));

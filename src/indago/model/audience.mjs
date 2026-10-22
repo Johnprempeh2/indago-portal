@@ -11,3 +11,7 @@ export const isFacilitator = (member) => member?.openAccess !== true && member?.
 // North Star fields that hold Greatstone's own view, not the client's record.
 const FACILITATOR_FIELDS = [/^question\.\d+\.interpretation$/, /^draft\.challenge$/];
 export const facilitatorOnlyField = (key) => FACILITATOR_FIELDS.some((re) => re.test(key));
+
+// Change history a client may see: saved Greatstone notes stay with facilitators.
+export const visibleHistory = (items, facilitator) => facilitator ? items
+  : items.filter((item) => !(item.field_key && (item.kind === undefined || item.kind === 'north-star') && facilitatorOnlyField(item.field_key)));

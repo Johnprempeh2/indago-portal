@@ -4,7 +4,7 @@ import { Deliverables } from './WorkPlan.jsx';
 import { Field, Clock, exportHypotheses, northStarWork } from './ns-fields.jsx';
 import NorthStarGuide from './NorthStarGuide.jsx';
 import { hypothesisIdsOf, sentencePreview } from '../model/north-star-steps.mjs';
-import { facilitatorOnlyField } from '../model/audience.mjs';
+import { facilitatorOnlyField, visibleHistory } from '../model/audience.mjs';
 
 const section = (number, title, body) => <section className="ns-section" aria-labelledby={`ns-${number}`}>
   <div className="section-label">NS-01 · {number}</div><h3 id={`ns-${number}`}>{title}</h3>{body}
@@ -32,11 +32,12 @@ function FullRecord({ state, canEdit, northStar, northStarActions, onOpen, onEvi
         <p>{row.treatment}</p><div className="ns-grid">{field(`baseline.${i}.status`, 'Status', ['', 'Confirmed', 'Changed', 'Rejected', 'Still unverified'])}
           {field(`baseline.${i}.outcome`, 'Session outcome', null, true)}</div></article>)}</div></>)}
 
-    {section(3, 'Ninety-minute workshop run of show', <>{facilitator && <Clock value={f['show.clock']} save={save('show.clock')} canEdit={canEdit} blocks={t.runOfShow} />}
-      <div className="ns-list">{t.runOfShow.map((block, i) => <article className="ns-item" key={block.time}><h4>{block.time} · {block.move}</h4>
-        <p>Planned outcome: {block.outcome}</p>{field(`show.${i}.notes`, 'Session notes', null, true)}</article>)}</div></>)}
+    {/* Client users get plain session headings, not the timed run of show (GRE-1942). */}
+    {section(3, facilitator ? 'Ninety-minute workshop run of show' : 'Session notes', <>{facilitator && <Clock value={f['show.clock']} save={save('show.clock')} canEdit={canEdit} blocks={t.runOfShow} />}
+      <div className="ns-list">{t.runOfShow.map((block, i) => <article className="ns-item" key={block.time}><h4>{facilitator ? `${block.time} · ${block.move}` : `Part ${i + 1} · ${block.outcome}`}</h4>
+        {facilitator && <p>Planned outcome: {block.outcome}</p>}{field(`show.${i}.notes`, 'Session notes', null, true)}</article>)}</div></>)}
 
-    {section(4, 'The provocative interrogation', <>{facilitator && <p className="note">Record Gordon’s words before drafting a Greatstone interpretation. These are separate fields.</p>}
+    {section(4, facilitator ? 'The provocative interrogation' : 'The hard questions', <>{facilitator && <p className="note">Record Gordon’s words before drafting a Greatstone interpretation. These are separate fields.</p>}
       {t.questions.map((group, groupIndex) => <div className="ns-question-group" key={group.heading}><h4>{group.heading}</h4>
         {group.items.map((question, index) => { const n = questionIndex(groupIndex, index); return <article className="ns-item" key={question}><p className="ns-question">{question}</p>
           <div className="ns-grid">{field(`question.${n}.asked`, 'Asked', null, false, 'checkbox')}{field(`question.${n}.followup`, 'Follow-up needed', null, false, 'checkbox')}</div>
@@ -67,7 +68,7 @@ function FullRecord({ state, canEdit, northStar, northStarActions, onOpen, onEvi
       <h4>{question}</h4><div className="ns-grid">{field(`boundary.${i}.decision`, 'Decision / unresolved', ['', 'Decision', 'Unresolved'])}
         {field(`boundary.${i}.note`, 'Note', null, true)}</div></article>)}</div>)}
 
-    {section(8, 'Facilitator challenge and convergence test', <div className="ns-list">{t.convergence.map((check, i) => <article className="ns-item" key={check}>
+    {section(8, facilitator ? 'Facilitator challenge and convergence test' : 'Test the draft', <div className="ns-list">{t.convergence.map((check, i) => <article className="ns-item" key={check}>
       <h4>{check}</h4><div className="ns-grid">{field(`convergence.${i}.answer`, 'Answer', ['', 'Yes', 'No', 'Partly'])}
         {field(`convergence.${i}.note`, 'Note', null, true)}</div></article>)}</div>)}
 
@@ -119,7 +120,7 @@ export default function NorthStar(props) {
   if (!northStar) return <p role="status">Loading North Star instrument…</p>;
   const { template: t } = northStar;
   const run = async action => { try { setMessage(''); await action(); setMessage('Saved.'); } catch (e) { setMessage(e.message || 'Action failed. Try again.'); } };
-  const showHistory = async () => run(async () => setHistory(history ? null : await northStarActions.history()));
+  const showHistory = async () => run(async () => setHistory(history ? null : visibleHistory(await northStarActions.history(), props.facilitator)));
   const print = () => { flushSync(() => setPrinting(true)); const guard = document.querySelector('.ns-guardrails'); if (guard) guard.open = true; window.print(); };
   const record = view === 'record' || printing;
 
@@ -135,7 +136,7 @@ export default function NorthStar(props) {
         {record && <><button type="button" className="btn small" onClick={print}>Print or save PDF</button>
           <button type="button" className="btn small" onClick={showHistory}>Change history</button></>}</div></div>
     {message && <p className="hint" role="status">{message}</p>}
-    {history && <aside className="ns-history" aria-label="North Star change history"><h3>Change history</h3><ol>
+    {history && <aside className="ns-history" aria-label="North Star change history"><h3>Change history</h3>{history.length === 0 && <p className="note">No changes yet.</p>}<ol>
       {history.map(item => <li key={item.id}><b>{item.field_key}</b>: {item.old_value || 'Empty'} → {item.new_value || 'Empty'} · {item.actor} · {new Date(item.changed_at).toLocaleString('en-GB')}</li>)}
     </ol></aside>}
     {record ? <FullRecord {...props} run={run} showHistory={showHistory} /> : <NorthStarGuide {...props} run={run} showHistory={showHistory} onPrint={print} onFullRecord={() => setView('record')} />}

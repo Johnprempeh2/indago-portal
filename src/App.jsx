@@ -3,7 +3,7 @@ import { authClient } from './lib/auth-client.mjs';
 import { makeIndagoApi } from './indago/indago.mjs';
 import { makeRecordStore, recordsToState } from './indago/data/record-store.mjs';
 import IndagoApp from './indago/IndagoApp.jsx';
-import { isFacilitator } from './indago/model/audience.mjs';
+import { isFacilitator, visibleHistory } from './indago/model/audience.mjs';
 import GreatstoneFooter from './indago/GreatstoneFooter.jsx';
 
 export default function App() {
@@ -117,7 +117,7 @@ export function Workspace({ openAccess = false }) {
   }, [role, store]);
   const showHistory = async () => {
     if (history) { setHistory(null); return; }
-    try { setHistory(await api.recentHistory()); } catch (e) { setError(e.message || 'History could not be loaded.'); }
+    try { setHistory(visibleHistory(await api.recentHistory(), facilitator)); } catch (e) { setError(e.message || 'History could not be loaded.'); }
   };
   if (error && role === undefined) return <main className="portal-ui state" role="alert">{error}</main>;
   if (role === undefined) return <main className="portal-ui state" aria-busy="true">Checking invitation…</main>;
@@ -143,6 +143,6 @@ export function Workspace({ openAccess = false }) {
       } }}
       status={<span role="status" className="portal-ui sync-status">{lastSync ? `Updated ${lastSync.toLocaleTimeString('en-GB')}` : 'Connecting…'}</span>}
       headerSlot={<><button type="button" className="btn small" onClick={showHistory}>History</button>{!openAccess && <button type="button" className="btn small" onClick={() => authClient.signOut()}>Sign out</button>}</>} />
-    {history && <aside className="portal-ui history-panel" aria-label="Change history"><button onClick={() => setHistory(null)}>Close history</button><h2>Recent changes</h2><ol>{history.map(item => <li key={`${item.kind}-${item.id}`}>{item.kind === 'file' ? `${item.action === 'uploaded' ? 'Uploaded' : 'Removed'} ${item.file_name} for ${item.work_package_id}` : item.kind === 'north-star' ? `North Star ${item.field_key}: ${item.old_value || 'Empty'} → ${item.new_value || 'Empty'}` : changeLabel(item)}, {new Date(item.changed_at).toLocaleString('en-GB')}, {item.actor || item.actor_email || 'Unknown user'}</li>)}</ol></aside>}
+    {history && <aside className="portal-ui history-panel" aria-label="Change history"><button onClick={() => setHistory(null)}>Close history</button><h2>Recent changes</h2>{history.length === 0 && <p>No changes yet.</p>}<ol>{history.map(item => <li key={`${item.kind}-${item.id}`}>{item.kind === 'file' ? `${item.action === 'uploaded' ? 'Uploaded' : 'Removed'} ${item.file_name} for ${item.work_package_id}` : item.kind === 'north-star' ? `North Star ${item.field_key}: ${item.old_value || 'Empty'} → ${item.new_value || 'Empty'}` : changeLabel(item)}, {new Date(item.changed_at).toLocaleString('en-GB')}, {item.actor || item.actor_email || 'Unknown user'}</li>)}</ol></aside>}
   </>;
 }
