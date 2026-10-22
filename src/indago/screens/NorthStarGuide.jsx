@@ -4,13 +4,16 @@ import { Field, Clock, Choice, Toggle, LongText, exportHypotheses, northStarWork
 import {
   northStarSections, northStarProgress, startPosition, sentencePreview, approvalBlocked, hypothesisIdsOf, ACCEPTANCE_KEY,
 } from '../model/north-star-steps.mjs';
+import { facilitatorOnlyField } from '../model/audience.mjs';
 
 const readStored = key => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
 const writeStored = (key, value) => { try { localStorage.setItem(key, value); } catch { /* private mode */ } };
 
 // The guided North Star path: one small step at a time, with visible progress.
 // It edits the same fields as the full record, through the same save action.
-export default function NorthStarGuide({ state, canEdit, northStar, northStarActions, onOpen, onEvidence, files = [], fileActions, run, showHistory, onPrint, onFullRecord }) {
+// Guardrails, the timer, Greatstone's own notes and the facilitator guidance
+// are for facilitators only (GRE-1942).
+export default function NorthStarGuide({ state, canEdit, northStar, northStarActions, onOpen, onEvidence, files = [], fileActions, run, showHistory, onPrint, onFullRecord, facilitator = false }) {
   const { template: t, fields: f } = northStar;
   const sections = northStarSections(t, f);
   const progress = northStarProgress(sections);
@@ -58,11 +61,12 @@ export default function NorthStarGuide({ state, canEdit, northStar, northStarAct
     if (spec.kind === 'long') return <LongText key={spec.key} {...props} hint={spec.hint} open={item.open} />;
     return <Field key={spec.key} {...props} type={spec.kind === 'date' ? 'date' : 'text'} placeholder={spec.hint} />;
   };
-  const toggles = item.fields.filter(spec => spec.kind === 'toggle');
+  const shown = item.fields.filter(spec => facilitator || !facilitatorOnlyField(spec.key));
+  const toggles = shown.filter(spec => spec.kind === 'toggle');
   const acceptance = sections.find(s => s.id === 'convergence');
   const nextSection = sections[pos.section + 1];
   const done = finished !== null ? sections[finished] : null;
-  const guide = [...(section.guide || []), ...(item.detail ? [item.detail] : [])];
+  const guide = [...(section.guide || []), ...(facilitator ? section.facilitatorGuide || [] : []), ...(item.detail ? [item.detail] : [])];
   const hasMore = guide.length > 0 || item.evidence || item.history;
 
   return <div className="ns-guide">
@@ -70,10 +74,10 @@ export default function NorthStarGuide({ state, canEdit, northStar, northStarAct
     <div className="ns-overall">
       <p className="ns-overall-text"><span>{progress.done} of {progress.total} steps recorded</span>
         <span className="ns-save" role="status" aria-live="polite">{pending ? 'Saving…' : saved ? 'All changes saved' : canEdit ? 'Saves as you go' : 'Read only'}</span></p>
-      <details className="ns-more ns-tools"><summary>Tools and guide</summary><div className="ns-tools-panel">
+      <details className="ns-more ns-tools"><summary>{facilitator ? 'Tools and guide' : 'Tools'}</summary><div className="ns-tools-panel">
         <p>{t.purpose.replace(/^Purpose: /, '')}</p>
-        <h4>Facilitator guide</h4><ol>{t.guardrails.map(rule => <li key={rule}>{rule}</li>)}</ol>
-        <h4>Workshop timer</h4><Clock value={f['show.clock']} save={save('show.clock')} canEdit={canEdit} blocks={t.runOfShow} />
+        {facilitator && <><h4>Facilitator guide</h4><ol>{t.guardrails.map(rule => <li key={rule}>{rule}</li>)}</ol>
+          <h4>Workshop timer</h4><Clock value={f['show.clock']} save={save('show.clock')} canEdit={canEdit} blocks={t.runOfShow} /></>}
         <div className="ns-actions"><button type="button" className="btn small" onClick={onPrint}>Print or save PDF</button>
           <button type="button" className="btn small" onClick={showHistory}>Change history</button></div>
       </div></details>
@@ -121,7 +125,7 @@ export default function NorthStarGuide({ state, canEdit, northStar, northStarAct
             <h4 ref={heading} tabIndex={-1}>{item.title}</h4>
             {item.purpose && <p className="ns-purpose">{item.purpose}</p>}
             {toggles.length > 0 && <div className="ns-chips">{toggles.map(spec => <Toggle key={spec.key} name={spec.label} value={f[spec.key] || ''} save={save(spec.key)} canEdit={canEdit} />)}</div>}
-            <div className="ns-inputs">{item.fields.filter(spec => spec.kind !== 'toggle').map(input)}</div>
+            <div className="ns-inputs">{shown.filter(spec => spec.kind !== 'toggle').map(input)}</div>
             {item.preview && <p className="ns-preview" aria-live="polite"><b>Your sentence so far:</b> {sentencePreview(f)}</p>}
             {item.approval && approvalBlocked(f) && <p className="note warn">Approval needs Gordon’s acceptance recorded as Yes.{' '}
               <button type="button" className="link-button" onClick={() => go({ section: acceptance.index, step: Number(ACCEPTANCE_KEY.split('.')[1]) })}>Go to that check</button></p>}

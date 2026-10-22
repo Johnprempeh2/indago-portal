@@ -51,10 +51,11 @@ const GOV = [
 ];
 
 // The Indago portal. `store` comes from the data layer:
-// { state, canEdit, actions } — see README "Data contract".
+// { state, canEdit, actions } — see README "Data contract". `facilitator`
+// shows the facilitator-only guidance; it is off unless the host sets it (GRE-1942).
 // `headerSlot` lets the host add sign-out, history or live-status controls.
 export default function IndagoApp({ store, headerSlot, status }) {
-  const { state, canEdit, actions, files = [], fileActions, northStar, northStarActions, hideNorthStar = false } = store;
+  const { state, canEdit, actions, files = [], fileActions, northStar, northStarActions, hideNorthStar = false, facilitator = false } = store;
   const [tab, setTab] = useState(tabFromHash);
   const [evidenceJump, setEvidenceJump] = useState('');
   // Where a "What is next" button lands on its screen: { filter, focus } (GRE-1891).
@@ -150,7 +151,7 @@ export default function IndagoApp({ store, headerSlot, status }) {
 
         <main ref={panelRef} id="indago-panel" className="panel" role="tabpanel" aria-labelledby={`indago-tab-${tab}`} tabIndex={-1}>
           {hideNorthStar && tab === 'north-star' ? <p role="alert">North Star requires named sign-in.</p> :
-          <Screen state={state} canEdit={canEdit} actions={actions} files={files} fileActions={fileActions} hideNorthStar={hideNorthStar}
+          <Screen state={state} canEdit={canEdit} facilitator={facilitator} actions={actions} files={files} fileActions={fileActions} hideNorthStar={hideNorthStar}
             northStar={northStar} northStarActions={northStarActions} onOpen={open} jump={jump}
             evidenceJump={evidenceJump} onEvidence={id => { setEvidenceJump(id); open('evidence'); }} />}
         </main>

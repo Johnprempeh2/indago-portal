@@ -1,5 +1,6 @@
 // Demo page: the screens on MADE-UP data, with no sign-in and no database.
-// Add ?viewer to the address to see the read-only Viewer role.
+// Add ?viewer to the address to see the read-only Viewer role, and ?facilitator
+// to see the facilitator-only guidance (GRE-1942).
 import React, { useMemo, useReducer, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import IndagoApp from '../src/indago/IndagoApp.jsx';
@@ -23,6 +24,7 @@ function Demo() {
   } });
   const actions = useMemo(() => bindActions(dispatch), []);
   const canEdit = !new URLSearchParams(location.search).has('viewer');
+  const facilitator = new URLSearchParams(location.search).has('facilitator');
   const save = (name, data) => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([data], { type: 'application/octet-stream' }));
@@ -55,7 +57,7 @@ function Demo() {
     sendHypothesis: async id => setNorthStar(current => ({ ...current, fields: { ...current.fields, [`hypothesis.${id}.request`]: 'DEMO-RQ-001' } })),
     history: async () => [],
   };
-  return <IndagoApp store={{ state, canEdit, actions, files, fileActions, northStar, northStarActions }} status={<span className="badge">Demo data</span>} />;
+  return <IndagoApp store={{ state, canEdit, facilitator, actions, files, fileActions, northStar, northStarActions }} status={<span className="badge">Demo data</span>} />;
 }
 
 createRoot(document.getElementById('root')).render(<Demo />);

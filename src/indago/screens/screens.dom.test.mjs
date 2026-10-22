@@ -43,7 +43,7 @@ export function Tabs(props) {
 }
 export { React, flushSync };
 // North Star with an in-memory store that applies the IND-NS-001 approval rule like the server.
-export function NorthStarHost({ canEdit = true, calls = [], initial = {} }) {
+export function NorthStarHost({ canEdit = true, facilitator = false, calls = [], initial = {} }) {
   const [fields, setFields] = React.useState(initial);
   const actions = {
     save: async (key, value) => {
@@ -53,7 +53,7 @@ export function NorthStarHost({ canEdit = true, calls = [], initial = {} }) {
     },
     addHypothesis: async () => ({ id: 'NS-H-07' }), sendHypothesis: async () => {}, history: async () => [],
   };
-  return React.createElement(NorthStar, { state: demoState(), canEdit, northStar: { template: demoNorthStar, fields }, northStarActions: actions,
+  return React.createElement(NorthStar, { state: demoState(), canEdit, facilitator, northStar: { template: demoNorthStar, fields }, northStarActions: actions,
     onOpen: () => {}, onEvidence: () => {}, files: [] });
 }
 `;
@@ -83,12 +83,12 @@ after(() => {
   win.happyDOM.close();
 });
 
-function render(Screen, { canEdit = true, state = lib.demoState(), actions = {}, files = [], fileActions } = {}) {
+function render(Screen, { canEdit = true, facilitator = false, state = lib.demoState(), actions = {}, files = [], fileActions } = {}) {
   const el = document.createElement('div');
   document.body.appendChild(el);
   const calls = [];
   const spy = new Proxy(actions, { get: (t, k) => t[k] || ((...a) => calls.push([k, ...a])) });
-  const root = lib.mount(el, lib.React.createElement(Screen, { state, canEdit, actions: spy, files, fileActions, onOpen: () => {} }));
+  const root = lib.mount(el, lib.React.createElement(Screen, { state, canEdit, facilitator, actions: spy, files, fileActions, onOpen: () => {} }));
   return { el, calls, unmount: () => { root.unmount(); el.remove(); } };
 }
 
@@ -244,7 +244,7 @@ test('IND-NS-001: Approved stays unavailable until acceptance is Yes', async () 
 });
 
 test('North Star guided view gives a Viewer no inputs, and the full record still shows every section', () => {
-  const ns = renderNorthStar({ canEdit: false });
+  const ns = renderNorthStar({ canEdit: false, facilitator: true });
   assert.equal(ns.el.querySelectorAll('.ns-guide textarea, .ns-guide select, .ns-guide input, .ns-card button.ns-chip, .ns-add').length, 0);
   ns.click(ns.button('Full record'));
   assert.equal(ns.el.querySelector('.ns-guide'), null);
@@ -384,7 +384,7 @@ test('Risks lists open risks first, folds closed ones, and opens the wording of 
 });
 
 test('Investigation shows one stage at a time, opens on the next gate, and folds the Toolkit reference', () => {
-  const { el, calls, unmount } = render(lib.SCREENS.Investigation);
+  const { el, calls, unmount } = render(lib.SCREENS.Investigation, { facilitator: true });
   assert.equal(el.querySelectorAll('.iv-stage').length, 1, 'one stage card');
   assert.ok(el.querySelector('#stage-02'), 'opens on the stage of the next gate to approve (G2)');
   assert.match(el.querySelector('.gt-current').textContent, /^Stage 02: .+G2/, 'the chosen stage is named over the numbered buttons');
@@ -459,4 +459,67 @@ test('Traceability leads with the chain, one progress line and the look-up; the 
   assert.ok(el.querySelector('details:not([open]) .row-bar'), 'the area breakdown is folded');
   assert.ok(el.querySelector('details:not([open]) table'), 'the classification table is folded');
   unmount();
+});
+
+// GRE-1942: client users see their own stages, checklist, evidence and progress;
+// the facilitator guidance shows only when the host says the user is a facilitator.
+const summaries = (el) => [...el.querySelectorAll('summary')].map((x) => x.textContent);
+
+test('a client user does not see the Toolkit reference or stage method; a facilitator does', () => {
+  const client = render(lib.SCREENS.Investigation);
+  for (const t of ['Mandate and operating rules', 'Document authority', 'Control rhythm', 'How this stage runs']) {
+    assert.ok(!summaries(client.el).includes(t), `client: ${t} is hidden`);
+  }
+  assert.ok(client.el.querySelector('.iv-stage') && client.el.querySelector('.iv-check #ck0'), 'client still sees the stage and the checklist');
+  client.unmount();
+  const fac = render(lib.SCREENS.Investigation, { facilitator: true });
+  for (const t of ['Mandate and operating rules', 'How this stage runs']) assert.ok(summaries(fac.el).includes(t), `facilitator: ${t} shows`);
+  fac.unmount();
+});
+
+test('a client user does not see the gate guidance or the Toolkit output; a facilitator does', () => {
+  const client = render(lib.SCREENS.Gates);
+  assert.ok(!summaries(client.el).includes('How gates work'));
+  assert.doesNotMatch(client.el.textContent, /Toolkit output:/);
+  assert.match(client.el.textContent, /Owner:/, 'the gate owner still shows');
+  client.unmount();
+  const fac = render(lib.SCREENS.Gates, { facilitator: true });
+  assert.ok(summaries(fac.el).includes('How gates work'));
+  assert.match(fac.el.textContent, /Toolkit output:/);
+  fac.unmount();
+});
+
+test('a client user does not see the internal rules for the client IDs on Evidence', () => {
+  const client = render(lib.SCREENS.Evidence);
+  assert.ok(!summaries(client.el).includes("Rules for the client's IDs"));
+  client.unmount();
+  const fac = render(lib.SCREENS.Evidence, { facilitator: true });
+  assert.ok(summaries(fac.el).includes("Rules for the client's IDs"));
+  fac.unmount();
+});
+
+test('North Star: a client user gets no guardrails, timer or Greatstone notes in either view', () => {
+  const ns = renderNorthStar();
+  assert.equal(ns.el.querySelector('.ns-tools summary').textContent, 'Tools');
+  assert.doesNotMatch(ns.el.textContent, /Facilitator guide|Workshop timer/);
+  ns.click([...ns.el.querySelectorAll('.ns-rail button')].find((b) => b.textContent.includes('Ask the hard questions')));
+  assert.match(ns.el.textContent, /Gordon’s words \(verbatim\)/, 'the client record field still shows');
+  assert.doesNotMatch(ns.el.textContent, /Greatstone note|Greatstone interpretation/);
+  ns.click(ns.button('Full record'));
+  assert.equal(ns.el.querySelector('.ns-guardrails'), null);
+  assert.equal(ns.el.querySelector('.ns-clock'), null);
+  assert.doesNotMatch(ns.el.textContent, /Greatstone note|Greatstone challenge|internal facilitator edition/);
+  assert.equal(ns.el.querySelectorAll('.ns-section').length, 10, 'every record section still shows');
+  ns.unmount();
+});
+
+test('North Star: a facilitator sees the guardrails, timer and Greatstone notes', () => {
+  const ns = renderNorthStar({ facilitator: true });
+  assert.equal(ns.el.querySelector('.ns-tools summary').textContent, 'Tools and guide');
+  assert.match(ns.el.textContent, /Facilitator guide/);
+  ns.click(ns.button('Full record'));
+  assert.ok(ns.el.querySelector('.ns-guardrails'));
+  assert.match(ns.el.textContent, /Greatstone note \/ interpretation/);
+  assert.match(ns.el.textContent, /Greatstone challenge/);
+  ns.unmount();
 });

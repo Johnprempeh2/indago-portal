@@ -54,7 +54,7 @@ function RegCard({ sheet, cfg, cols, row, layout, canEdit, onCommit, onOpen, ope
   );
 }
 
-export default function Evidence({ state, canEdit, actions, evidenceJump, onOpen }) {
+export default function Evidence({ state, canEdit, actions, evidenceJump, onOpen, facilitator = false }) {
   const sheets = Object.keys(REG).filter((k) => state.reg[k]);
   const [cur, setCur] = useState(sheets[0]);
   const [filters, setFilters] = useState({});
@@ -102,10 +102,10 @@ export default function Evidence({ state, canEdit, actions, evidenceJump, onOpen
       <Governs>Evidence &amp; Transformation Control Register · governs factual traceability</Governs>
       <h2 className="section-title">Evidence register</h2>
       <p className="lead">One register at a time. Record the answer and how it was checked. Open <b>Details</b> for the rest of the row.</p>
-      <details className="ns-more mb">
+      {facilitator && <details className="ns-more mb">
         <summary>Rules for the client's IDs</summary>
         <p>IND-EV-001…140 and IND-RQ-01…31 are the client's IDs: never renumber them, and never change the original statement or classification. A client answer is an attestation, not proof: record the client answer and the verification status separately. Do not enter inferred figures as verified.</p>
-      </details>
+      </details>}
 
       <TabList tabs={tabs} current={cur} onSelect={select} label="Register sheets" className="subtabs" tabClass="subtab" idPrefix="reg" />
 

@@ -4,16 +4,18 @@ import { Deliverables } from './WorkPlan.jsx';
 import { Field, Clock, exportHypotheses, northStarWork } from './ns-fields.jsx';
 import NorthStarGuide from './NorthStarGuide.jsx';
 import { hypothesisIdsOf, sentencePreview } from '../model/north-star-steps.mjs';
+import { facilitatorOnlyField } from '../model/audience.mjs';
 
 const section = (number, title, body) => <section className="ns-section" aria-labelledby={`ns-${number}`}>
   <div className="section-label">NS-01 · {number}</div><h3 id={`ns-${number}`}>{title}</h3>{body}
 </section>;
 
 // The whole NS-01 record on one page: used for print, PDF and a full read-through.
-function FullRecord({ state, canEdit, northStar, northStarActions, onOpen, onEvidence, files = [], fileActions, run, showHistory }) {
+// Guardrails, the timer and Greatstone's own notes are for facilitators only (GRE-1942).
+function FullRecord({ state, canEdit, northStar, northStarActions, onOpen, onEvidence, files = [], fileActions, run, showHistory, facilitator = false }) {
   const { template: t, fields: f } = northStar;
   const save = key => value => northStarActions.save(key, value);
-  const field = (key, name, options, multiline = false, type = 'text') => <Field key={key} name={name} value={f[key] || ''} save={save(key)} canEdit={canEdit}
+  const field = (key, name, options, multiline = false, type = 'text') => (!facilitator && facilitatorOnlyField(key)) ? null : <Field key={key} name={name} value={f[key] || ''} save={save(key)} canEdit={canEdit}
     options={options} multiline={multiline} type={type} />;
   const questionIndex = (sectionIndex, index) => t.questions.slice(0, sectionIndex).reduce((sum, item) => sum + item.items.length, 0) + index;
   const hypothesisIds = hypothesisIdsOf(t, f);
@@ -22,7 +24,7 @@ function FullRecord({ state, canEdit, northStar, northStarActions, onOpen, onEvi
   const jumpWork = id => { onOpen('plan'); setTimeout(() => document.getElementById(`wbs-${id}`)?.scrollIntoView({ block: 'center' }), 30); };
 
   return <div className="ns-record">
-    <details className="ns-guardrails" open><summary>1 · Facilitation mandate and guardrails</summary><ol>{t.guardrails.map(rule => <li key={rule}>{rule}</li>)}</ol></details>
+    {facilitator && <details className="ns-guardrails" open><summary>1 · Facilitation mandate and guardrails</summary><ol>{t.guardrails.map(rule => <li key={rule}>{rule}</li>)}</ol></details>}
 
     {section(2, 'Existing strategic baseline', <><p className="note">{t.baselineNote}</p><div className="ns-list">{t.baseline.map((row, i) =>
       <article className="ns-item" key={row.id}><h4>{(row.id.includes('/082') ? ['IND-EV-014', 'IND-EV-082'] : [row.id]).map((id, index) =>
@@ -30,11 +32,11 @@ function FullRecord({ state, canEdit, northStar, northStarActions, onOpen, onEvi
         <p>{row.treatment}</p><div className="ns-grid">{field(`baseline.${i}.status`, 'Status', ['', 'Confirmed', 'Changed', 'Rejected', 'Still unverified'])}
           {field(`baseline.${i}.outcome`, 'Session outcome', null, true)}</div></article>)}</div></>)}
 
-    {section(3, 'Ninety-minute workshop run of show', <><Clock value={f['show.clock']} save={save('show.clock')} canEdit={canEdit} blocks={t.runOfShow} />
+    {section(3, 'Ninety-minute workshop run of show', <>{facilitator && <Clock value={f['show.clock']} save={save('show.clock')} canEdit={canEdit} blocks={t.runOfShow} />}
       <div className="ns-list">{t.runOfShow.map((block, i) => <article className="ns-item" key={block.time}><h4>{block.time} · {block.move}</h4>
         <p>Planned outcome: {block.outcome}</p>{field(`show.${i}.notes`, 'Session notes', null, true)}</article>)}</div></>)}
 
-    {section(4, 'The provocative interrogation', <><p className="note">Record Gordon’s words before drafting a Greatstone interpretation. These are separate fields.</p>
+    {section(4, 'The provocative interrogation', <>{facilitator && <p className="note">Record Gordon’s words before drafting a Greatstone interpretation. These are separate fields.</p>}
       {t.questions.map((group, groupIndex) => <div className="ns-question-group" key={group.heading}><h4>{group.heading}</h4>
         {group.items.map((question, index) => { const n = questionIndex(groupIndex, index); return <article className="ns-item" key={question}><p className="ns-question">{question}</p>
           <div className="ns-grid">{field(`question.${n}.asked`, 'Asked', null, false, 'checkbox')}{field(`question.${n}.followup`, 'Follow-up needed', null, false, 'checkbox')}</div>
@@ -123,7 +125,7 @@ export default function NorthStar(props) {
 
   return <div className="north-star">
     {/* Guided keeps the header to one line so the first step is in view; print and history move to its Tools toggle. */}
-    <div className={`ns-head${record ? '' : ' compact'}`}><div>{record && <div className="section-label">{t.edition}</div>}
+    <div className={`ns-head${record ? '' : ' compact'}`}><div>{record && <div className="section-label">{props.facilitator ? t.edition : t.id}</div>}
       <h2 className="section-title">North Star</h2>{record && <p className="lead">{t.purpose.replace(/^Purpose: /, '')}</p>}</div>
       <div className="ns-actions">
         <div className="ns-view" role="group" aria-label="North Star view">

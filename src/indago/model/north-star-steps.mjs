@@ -58,7 +58,8 @@ export function northStarSections(t, f) {
     {
       id: 'questions', number: 4, title: 'Ask the hard questions',
       purpose: 'One question at a time. Record Gordon’s words first, then your note.',
-      guide: ['Record Gordon’s words before drafting a Greatstone interpretation. These are separate fields.'],
+      // Facilitators only (GRE-1942): the interpretation field is theirs.
+      facilitatorGuide: ['Record Gordon’s words before drafting a Greatstone interpretation. These are separate fields.'],
       steps: t.questions.flatMap(group => group.items.map(question => {
         const n = q++;
         return step(`question-${n}`, {

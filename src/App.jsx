@@ -3,6 +3,7 @@ import { authClient } from './lib/auth-client.mjs';
 import { makeIndagoApi } from './indago/indago.mjs';
 import { makeRecordStore, recordsToState } from './indago/data/record-store.mjs';
 import IndagoApp from './indago/IndagoApp.jsx';
+import { isFacilitator } from './indago/model/audience.mjs';
 import GreatstoneFooter from './indago/GreatstoneFooter.jsx';
 
 export default function App() {
@@ -69,6 +70,7 @@ function SignIn() {
 export function Workspace({ openAccess = false }) {
   const api = useMemo(() => makeIndagoApi(), []);
   const [role, setRole] = useState(undefined);
+  const [facilitator, setFacilitator] = useState(false);
   const [snapshot, setSnapshot] = useState(null);
   const [error, setError] = useState('');
   const [history, setHistory] = useState(null);
@@ -92,7 +94,7 @@ export function Workspace({ openAccess = false }) {
   };
   useEffect(() => {
     let active = true;
-    api.membership().then(member => { if (active) setRole(member?.role ?? null); }).catch(error => {
+    api.membership().then(member => { if (active) { setRole(member?.role ?? null); setFacilitator(isFacilitator(member)); } }).catch(error => {
       if (!active) return;
       if (error.status === 403) setRole(null);
       else setError('Access could not be checked. Reload and try again.');
@@ -133,7 +135,7 @@ export function Workspace({ openAccess = false }) {
   };
   return <>
     {error && <p className="portal-ui save-alert" role="alert">{error} <button onClick={() => setError('')}>Dismiss</button></p>}
-    <IndagoApp store={{ state, canEdit: role === 'editor', actions: store.actions, files, northStar, northStarActions, hideNorthStar: openAccess,
+    <IndagoApp store={{ state, canEdit: role === 'editor', facilitator, actions: store.actions, files, northStar, northStarActions, hideNorthStar: openAccess,
       fileActions: {
         upload: async (id, file) => { await api.uploadDeliverable(id, file); setFiles(await api.deliverables()); },
         remove: async id => { await api.removeDeliverable(id); setFiles(await api.deliverables()); },
