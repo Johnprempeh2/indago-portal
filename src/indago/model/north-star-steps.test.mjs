@@ -35,13 +35,26 @@ test('the guided path covers every NS-01 field the full record edits', () => {
 
 test('progress counts recorded steps and ticks off a finished section', () => {
   const fields = Object.fromEntries(seed.baseline.map((_, i) => [`baseline.${i}.status`, 'Confirmed']));
-  fields['question.0.asked'] = 'Yes';
+  fields['question.0.verbatim'] = 'We want clients to decide with confidence.';
   const sections = northStarSections(seed, fields);
   assert.equal(sections[0].complete, true);
   assert.equal(sections[0].done, seed.baseline.length);
   const progress = northStarProgress(sections);
   assert.equal(progress.done, seed.baseline.length + 1);
   assert.equal(progress.total, sections.reduce((sum, s) => sum + s.total, 0));
+});
+
+test('a step counts as recorded only when its key answer is there; a partial answer is "started"', () => {
+  const step = (fields, sectionId, index = 0) => northStarSections(seed, fields).find(s => s.id === sectionId).steps[index];
+  const asked = step({ 'question.0.asked': 'Yes' }, 'questions');
+  assert.deepEqual([asked.done, asked.started], [false, true], 'ticking "Asked" without Gordon’s words');
+  assert.equal(step({ 'question.0.verbatim': 'In his words.' }, 'questions').done, true);
+  const future = step({ 'future.0.excites': 'Speed.' }, 'futures');
+  assert.deepEqual([future.done, future.started], [false, true], 'one of the future prompts');
+  assert.equal(step({ 'future.0.excites': 'a', 'future.0.value': 'b', 'future.0.plausible': 'c' }, 'futures').done, true);
+  assert.equal(step({ 'dimension.0.target': '40% by 2029' }, 'dimensions').done, false, 'a target without a baseline');
+  assert.equal(step({ 'dimension.0.target': '40% by 2029', 'dimension.0.baseline': '12%' }, 'dimensions').done, true);
+  assert.equal(step({}, 'questions').started, false);
 });
 
 test('resume returns to the saved step, or to the first open step', () => {

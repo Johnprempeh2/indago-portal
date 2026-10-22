@@ -1,7 +1,7 @@
 // The guided North Star path (GRE-1891). Turns the NS-01 template and the saved
 // fields into sections of small steps. Each step lists its inputs (at most five)
-// and is "done" when its key answer is recorded. Field keys are the same as the
-// full record, so nothing about storage, history, locks or approval changes.
+// and is "done" only when its key answer is recorded; any other answer makes it
+// "started". Field keys are the same as the full record, so nothing about storage, history, locks or approval changes.
 
 export const MAX_INPUTS = 5;
 // IND-NS-001: the record can be approved only after the participant accepts the wording.
@@ -31,7 +31,7 @@ export function sentencePreview(fields) {
 
 export function northStarSections(t, f) {
   const any = keys => keys.some(key => filled(f[key]));
-  const step = (id, props) => ({ id, ...props, done: props.done(f) });
+  const step = (id, props) => ({ id, ...props, done: props.done(f), started: any(props.fields.map(field => field.key)) });
   let q = 0;
   const sections = [
     {
@@ -66,7 +66,7 @@ export function northStarSections(t, f) {
           fields: [toggle(`question.${n}.asked`, 'Asked'), toggle(`question.${n}.followup`, 'Follow-up needed'),
             long(`question.${n}.verbatim`, 'Gordon’s words (verbatim)', 'Write what was said, in their words.'),
             long(`question.${n}.interpretation`, 'Greatstone note / interpretation', 'What does this tell us? Mark it as our view.')],
-          done: () => f[`question.${n}.asked`] === 'Yes' || filled(f[`question.${n}.verbatim`]),
+          done: () => filled(f[`question.${n}.verbatim`]),
         });
       })),
     },
@@ -80,7 +80,7 @@ export function northStarSections(t, f) {
           long(`future.${i}.value`, 'Durable value', 'What would still be valuable in five years?'),
           long(`future.${i}.plausible`, 'What is plausible?', 'What could really happen, given today?'),
           long(`future.${i}.combination`, 'Combination note', 'Anything to borrow from the other futures?')],
-        done: () => any(['excites', 'value', 'plausible', 'combination'].map(key => `future.${i}.${key}`)),
+        done: () => ['excites', 'value', 'plausible'].every(key => filled(f[`future.${i}.${key}`])),
       })),
     },
     {
@@ -112,7 +112,7 @@ export function northStarSections(t, f) {
         kicker: 'Outcome dimension', title: dimension,
         fields: [text(`dimension.${i}.baseline`, 'Baseline', 'Where it is today'), choice(`dimension.${i}.verified`, 'Baseline status', ['Verified', 'Unknown']),
           text(`dimension.${i}.target`, 'Target and horizon', 'For example: 40% by 2029'), text(`dimension.${i}.evidence`, 'Evidence / owner', 'Who will prove it')],
-        done: () => filled(f[`dimension.${i}.target`]),
+        done: () => filled(f[`dimension.${i}.baseline`]) && filled(f[`dimension.${i}.target`]),
       })),
     },
     {
