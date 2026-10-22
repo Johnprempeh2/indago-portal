@@ -48,3 +48,16 @@ test('nothing is next when every gate is approved and nothing is ready or blocke
   state.gates = state.gates.map(g => ({ ...g, status: 'Approved' }));
   assert.deepEqual(nextSteps(state, {}), []);
 });
+
+test('each action says where to land: blocked work opens filtered on the first blocked package', () => {
+  const state = demoState();
+  const firstBlocked = state.wbs.find(w => w.status === 'Blocked');
+  const byId = Object.fromEntries(nextSteps(state, {}).map(s => [s.id, s]));
+  assert.deepEqual(byId.baseline.jump, { focus: 'kickoff' });
+  assert.deepEqual(byId.blocked.jump, { filter: { status: 'Blocked' }, focus: `wbs-${firstBlocked.id}`, show: 'wbs-toolbar' });
+  state.kickoff = '2026-10-26';
+  state.wbs = state.wbs.map(w => (w.status === 'Blocked' ? { ...w, status: 'In progress', blocker: '' } : w));
+  const [gate, ready] = nextSteps(state, {});
+  assert.deepEqual(gate.jump, { focus: 'gate-card-G2' });
+  assert.match(ready.jump.focus, /^wbs-/);
+});

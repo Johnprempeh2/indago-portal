@@ -57,14 +57,17 @@ export default function IndagoApp({ store, headerSlot, status }) {
   const { state, canEdit, actions, files = [], fileActions, northStar, northStarActions, hideNorthStar = false } = store;
   const [tab, setTab] = useState(tabFromHash);
   const [evidenceJump, setEvidenceJump] = useState('');
+  // Where a "What is next" button lands on its screen: { filter, focus } (GRE-1891).
+  const [jump, setJump] = useState(null);
 
   useEffect(() => {
-    const onHash = () => setTab(tabFromHash());
+    const onHash = () => { setJump(null); setTab(tabFromHash()); };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  const open = (id) => {
+  const open = (id, to = null) => {
+    setJump(to && { ...to });
     setTab(id);
     if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
   };
@@ -88,6 +91,20 @@ export default function IndagoApp({ store, headerSlot, status }) {
     });
     if (dy) window.scrollBy({ top: dy, behavior: 'instant' });
   }, [tab]);
+
+  // Runs after the scroll above, so the jump wins: focus the target and put
+  // `show` (or the target) just below the sticky tab bar.
+  useEffect(() => {
+    const target = jump?.focus && document.getElementById(jump.focus);
+    if (!target) return;
+    if (!target.matches('input, select, textarea, button, a[href]')) target.tabIndex = -1;
+    target.classList.add('jump-target');
+    target.focus({ preventScroll: true });
+    const top = (document.getElementById(jump.show) || target).getBoundingClientRect().top;
+    const nav = navRef.current;
+    const below = nav ? nav.offsetHeight + (parseFloat(getComputedStyle(nav).marginBottom) || 0) : 0;
+    window.scrollBy({ top: Math.round(top - below), behavior: 'instant' });
+  }, [jump]);
 
   const Screen = SCREENS[tab];
   return (
@@ -134,7 +151,7 @@ export default function IndagoApp({ store, headerSlot, status }) {
         <main ref={panelRef} id="indago-panel" className="panel" role="tabpanel" aria-labelledby={`indago-tab-${tab}`} tabIndex={-1}>
           {hideNorthStar && tab === 'north-star' ? <p role="alert">North Star requires named sign-in.</p> :
           <Screen state={state} canEdit={canEdit} actions={actions} files={files} fileActions={fileActions} hideNorthStar={hideNorthStar}
-            northStar={northStar} northStarActions={northStarActions} onOpen={open}
+            northStar={northStar} northStarActions={northStarActions} onOpen={open} jump={jump}
             evidenceJump={evidenceJump} onEvidence={id => { setEvidenceJump(id); open('evidence'); }} />}
         </main>
 

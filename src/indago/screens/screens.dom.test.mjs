@@ -275,3 +275,25 @@ test('Control centre leads with what is next and keeps the full dashboard behind
   root.unmount();
   el.remove();
 });
+
+test('"See blocked work" lands on the Work plan filtered to blocked packages', () => {
+  const el = document.createElement('div');
+  document.body.appendChild(el);
+  const state = lib.demoState();
+  const opened = [];
+  let root = lib.mount(el, lib.React.createElement(lib.SCREENS.ControlCentre, { state, canEdit: false, onOpen: (id, jump) => opened.push([id, jump]) }));
+  const button = [...el.querySelectorAll('.cc-go')].find(b => b.textContent === 'See blocked work');
+  lib.flushSync(() => button.click());
+  const [[tab, jump]] = opened;
+  assert.equal(tab, 'plan');
+  root.unmount();
+  root = lib.mount(el, lib.React.createElement(lib.SCREENS.WorkPlan, { state, canEdit: false, actions: {}, files: [], onOpen: () => {}, jump }));
+  const blocked = state.wbs.filter(w => w.status === 'Blocked');
+  const rows = [...el.querySelectorAll('tbody tr[id^="wbs-"]')];
+  assert.ok(blocked.length > 0);
+  assert.deepEqual(rows.map(r => r.id), blocked.map(w => `wbs-${w.id}`), 'only blocked packages are listed');
+  assert.equal(el.querySelector('select[aria-label="Status"]').value, 'Blocked', 'the filter shows why');
+  assert.ok(el.querySelector(`[id="${jump.focus}"]`), 'the focus target is on the screen');
+  root.unmount();
+  el.remove();
+});
