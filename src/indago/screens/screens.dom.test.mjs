@@ -387,6 +387,7 @@ test('Investigation shows one stage at a time, opens on the next gate, and folds
   const { el, calls, unmount } = render(lib.SCREENS.Investigation);
   assert.equal(el.querySelectorAll('.iv-stage').length, 1, 'one stage card');
   assert.ok(el.querySelector('#stage-02'), 'opens on the stage of the next gate to approve (G2)');
+  assert.match(el.querySelector('.gt-current').textContent, /^Stage 02: .+G2/, 'the chosen stage is named over the numbered buttons');
   assert.equal(el.querySelectorAll('.gt-steps .gt-step').length, 6);
   assert.match(el.querySelector('.iv-check').textContent, /1 of 3/, 'the first-week checklist shows progress');
   assert.ok(onMainPath(el).length <= 5, 'no more than five inputs at once');
@@ -417,6 +418,29 @@ test('Evidence shows each row as a card with at most three choices, ten at a tim
   unmount();
 });
 
+test('Client findings has a compact list that keeps the filter and opens a row as its card', () => {
+  const { el, unmount } = render(lib.SCREENS.Evidence);
+  const button = (text) => [...el.querySelectorAll('.ev-view button')].find((b) => b.textContent === text);
+  assert.equal(button('Cards').getAttribute('aria-pressed'), 'true', 'cards are the default');
+  const area = el.querySelector('select[aria-label="Business area"]');
+  area.value = area.options[1].value;
+  lib.flushSync(() => area.dispatchEvent(new win.Event('change', { bubbles: true })));
+  const matching = el.querySelectorAll('li.ev').length;
+  assert.ok(matching > 0 && matching < 12, 'the filter narrows the cards');
+  lib.flushSync(() => button('Compact list').click());
+  assert.equal(el.querySelectorAll('li.ev').length, 0, 'no cards in the list view');
+  assert.equal(el.querySelectorAll('.ev-table tbody tr').length, matching, 'the list keeps the filter');
+  assert.deepEqual([...el.querySelectorAll('.ev-table th')].map((th) => th.textContent), ['Client ID', 'Statement', 'Client answer', 'Verification status', 'Materiality']);
+  assert.equal(el.querySelectorAll('.ev-table select, .ev-table input, .ev-table textarea').length, 0, 'the list is read-only');
+  const id = el.querySelector('.ev-table tbody tr:last-child td.id').textContent;
+  lib.flushSync(() => el.querySelector('.ev-table tbody tr:last-child .ev-open').click());
+  assert.equal(button('Cards').getAttribute('aria-pressed'), 'true', 'opening a row goes back to cards');
+  assert.ok(el.querySelector(`#evidence-${id} details[open]`), 'the opened card shows its Details');
+  lib.flushSync(() => [...el.querySelectorAll('.subtabs [role=tab]')][1].click());
+  assert.equal(el.querySelector('.ev-view'), null, 'other registers have no list switch');
+  unmount();
+});
+
 test('an evidence jump shows the row even past the first ten', () => {
   const el = document.createElement('div');
   document.body.appendChild(el);
@@ -430,6 +454,7 @@ test('Traceability leads with the chain, one progress line and the look-up; the 
   const { el, unmount } = render(lib.SCREENS.Traceability);
   assert.match(el.querySelector('.tr-progress').textContent, /0 of 1 GDXP™ rows have the full chain/);
   assert.ok(el.querySelector('#lookup'));
+  assert.deepEqual([...el.querySelectorAll('.chain .chain-n')].map((n) => n.textContent), ['1', '2', '3', '4', '5', '6', '7', '8'], 'the chain steps are numbered for the phone layout');
   assert.ok(el.querySelector('details:not([open]) .kpis'), 'the measures are folded');
   assert.ok(el.querySelector('details:not([open]) .row-bar'), 'the area breakdown is folded');
   assert.ok(el.querySelector('details:not([open]) table'), 'the classification table is folded');

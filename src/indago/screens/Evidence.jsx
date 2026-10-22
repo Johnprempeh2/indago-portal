@@ -5,6 +5,9 @@ import { Bar, EditSelect, EditText, FilterSelect, Governs, Pill, TabList } from 
 
 const CLASS_TONE = { differ: 'warn', confirm: 'prog' };
 const PAGE = 10;
+// Registers long enough to triage as a list: the statement column and the
+// columns a reviewer compares across rows (GRE-1909).
+const LIST = { 'Client Findings': { text: 3, cols: [5, 8, 9] } };
 
 // One register value: read-only for the client's locked columns and the
 // calculated ones, otherwise the input that fits the column.
@@ -30,7 +33,7 @@ function RegCard({ sheet, cfg, cols, row, layout, canEdit, onCommit, onOpen, ope
   const meta = layout.facts.length ? layout.facts : layout.title !== 1 && row[1] ? [1] : [];
   return (
     <li id={`evidence-${row[0]}`} className="ev">
-      <div className="ev-title"><span className="id">{row[0]}</span> {row[layout.title] || <span className="empty">New row: add the details below.</span>}</div>
+      <div className="ev-title" tabIndex={-1}><span className="id">{row[0]}</span> {row[layout.title] || <span className="empty">New row: add the details below.</span>}</div>
       {meta.length > 0 && <div className="ev-meta">{meta.map((ci) => <span key={ci}>{field(ci)}</span>)}</div>}
       {layout.quick.length > 0 && (
         <div className="rk-fields ev-fields">
@@ -57,18 +60,25 @@ export default function Evidence({ state, canEdit, actions, evidenceJump, onOpen
   const [filters, setFilters] = useState({});
   const [shown, setShown] = useState(PAGE);
   const [added, setAdded] = useState(false);
+  const [view, setView] = useState('cards');
+  const [opened, setOpened] = useState(null);
   const cfg = REG[cur];
   const R = state.reg[cur];
   const cols = R.cols || [];
   const F = filters[cur] || { q: '' };
   const setF = (patch) => { setFilters((x) => ({ ...x, [cur]: { ...F, ...patch } })); setShown(PAGE); };
-  const select = (k) => { setCur(k); setShown(PAGE); setAdded(false); };
+  const select = (k) => { setCur(k); setShown(PAGE); setAdded(false); setOpened(null); };
+  const listCfg = LIST[cur];
+  const asList = listCfg && view === 'list';
+  // Opening a row from the list shows its card with Details open.
+  const openRow = (id) => { setView('cards'); setOpened({ id }); };
   const rows = filterRegRows(cur, R.rows, F);
   const layout = regCardLayout(cur, cols);
   const progress = regProgress(cur, R.rows);
   const tabs = sheets.map((k) => ({ id: k, label: REG[k].label, count: state.reg[k].rows.length }));
   // A jump from another screen must land on a row that is shown.
-  const jumpAt = evidenceJump ? rows.findIndex(({ row }) => row[0] === evidenceJump) : -1;
+  const target = opened?.id || evidenceJump;
+  const jumpAt = target ? rows.findIndex(({ row }) => row[0] === target) : -1;
   const limit = added ? rows.length : Math.max(shown, jumpAt + 1);
   useEffect(() => {
     if (!evidenceJump) return;
@@ -80,6 +90,12 @@ export default function Evidence({ state, canEdit, actions, evidenceJump, onOpen
     const target = document.getElementById(`evidence-${evidenceJump}`);
     target?.scrollIntoView({ block: 'center' });
   }, [evidenceJump, cur]);
+  useEffect(() => {
+    if (!opened) return;
+    const card = document.getElementById(`evidence-${opened.id}`);
+    card?.scrollIntoView({ block: 'start' });
+    card?.querySelector('.ev-title')?.focus();
+  }, [opened]);
 
   return (
     <>
@@ -113,18 +129,41 @@ export default function Evidence({ state, canEdit, actions, evidenceJump, onOpen
           {canEdit && !cfg.noAdd && <button type="button" className="btn small" onClick={() => { setF({ q: '' }); setAdded(true); actions.addRegRow(cur); }}>Add row</button>}
           <span className="count" aria-live="polite">{rows.length} of {R.rows.length} rows</span>
         </div>
+        {listCfg && (
+          <div className="ns-view ev-view" role="group" aria-label={`${cfg.label} view`}>
+            <button type="button" className="ns-chip" aria-pressed={!asList} onClick={() => setView('cards')}>Cards</button>
+            <button type="button" className="ns-chip" aria-pressed={!!asList} onClick={() => { setView('list'); setOpened(null); }}>Compact list</button>
+          </div>
+        )}
 
         {!rows.length && (
           <p className="empty">{R.rows.length ? 'No rows match the filter.' : canEdit && !cfg.noAdd ? 'No rows yet. Use “Add row” when the first record arrives.' : 'No rows yet.'}</p>
         )}
-        <ol className="rk-list ev-list">
-          {rows.slice(0, limit).map(({ row }, n) => (
-            <RegCard key={row[0]} sheet={cur} cfg={cfg} cols={cols} row={row} layout={layout} canEdit={canEdit} onOpen={onOpen}
-              open={(added && n === rows.length - 1) || !row[layout.title]}
-              onCommit={(ci, v) => actions.updateRegCell(cur, row[0], ci, v)} />
-          ))}
-        </ol>
-        {rows.length > limit && (
+        {asList ? rows.length > 0 && (
+          <div className="table-wrap ev-table">
+            <table className="gs-table stack">
+              <thead><tr><th scope="col">{cols[0]}</th><th scope="col">Statement</th>{listCfg.cols.map((ci) => <th key={ci} scope="col">{cols[ci]}</th>)}</tr></thead>
+              <tbody>
+                {rows.map(({ row }) => (
+                  <tr key={row[0]}>
+                    <td className="id">{row[0]}</td>
+                    <td data-label="Statement"><button type="button" className="link-button ev-open" onClick={() => openRow(row[0])}>{row[listCfg.text] || row[0]}</button></td>
+                    {listCfg.cols.map((ci) => <td key={ci} data-label={cols[ci]}>{cfg.sel?.[ci] === 'lmh' ? row[ci] || <span className="empty">—</span> : <Pill status={row[ci]} />}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <ol className="rk-list ev-list">
+            {rows.slice(0, limit).map(({ row }, n) => (
+              <RegCard key={row[0]} sheet={cur} cfg={cfg} cols={cols} row={row} layout={layout} canEdit={canEdit} onOpen={onOpen}
+                open={(added && n === rows.length - 1) || !row[layout.title] || row[0] === opened?.id}
+                onCommit={(ci, v) => actions.updateRegCell(cur, row[0], ci, v)} />
+            ))}
+          </ol>
+        )}
+        {!asList && rows.length > limit && (
           <div className="ev-more">
             <button type="button" className="cc-go" onClick={() => setShown(limit + PAGE)}>Show {Math.min(PAGE, rows.length - limit)} more</button>
             <span className="small faint">{limit} of {rows.length} shown</span>

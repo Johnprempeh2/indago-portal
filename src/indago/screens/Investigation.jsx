@@ -23,6 +23,7 @@ export default function Investigation({ state, canEdit, actions }) {
   const s = tk.stages[i];
   const prev = tk.stages[i - 1];
   const next = tk.stages[i + 1];
+  const gate = s && state.gates.find((g) => g.id === s.g);
   const checked = tk.checklist.filter((_, n) => state.check[n]).length;
   const ready = checked === tk.checklist.length;
 
@@ -31,7 +32,6 @@ export default function Investigation({ state, canEdit, actions }) {
     const names = [s.ws, ...(s.extra || [])];
     const ws = state.wbs.filter((w) => names.includes(w.ws));
     const done = ws.filter((w) => w.status === 'Complete').length;
-    const gate = state.gates.find((g) => g.id === s.g);
     return (
       <section id={`stage-${s.n}`} className={`card mb iv-stage${approved(gate) ? ' ok' : ''}`} aria-labelledby={`stage-h-${s.n}`}>
         <div className="section-label">Stage {s.n} · {i + 1} of {tk.stages.length} · {s.g} {gate && <Pill status={gate.status} />}</div>
@@ -85,6 +85,12 @@ export default function Investigation({ state, canEdit, actions }) {
         </details>
       </section>
 
+      {s && (
+        <p className="gt-current">
+          <b>Stage {s.n}: {s.t}</b>
+          <span>{s.g} {gate && <Pill status={gate.status} />}</span>
+        </p>
+      )}
       <ol className="gt-steps" aria-label="Stages">
         {tk.stages.map((x) => {
           const ok = approved(state.gates.find((g) => g.id === x.g));

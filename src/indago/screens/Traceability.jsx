@@ -18,7 +18,7 @@ export default function Traceability({ state }) {
 
       <ol className="chain" aria-label="Traceability chain">
         {CHAIN.map(([name, code], i) => (
-          <li key={name} className={`s${i === 0 || i === CHAIN.length - 1 ? ' k' : ''}`}><small>{code}</small>{name}</li>
+          <li key={name} className={`s${i === 0 || i === CHAIN.length - 1 ? ' k' : ''}`}><span className="chain-n" aria-hidden="true">{i + 1}</span><small>{code}</small>{name}</li>
         ))}
       </ol>
       <div className="wp-progress tr-progress" aria-label="Traceability progress">
