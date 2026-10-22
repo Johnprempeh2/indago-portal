@@ -6,7 +6,7 @@ export const previewUsers = Object.freeze({
 export function previewLoginAllowed(request, env = process.env) {
   const url = new URL(request.url);
   return env.INDAGO_TEST_LOGIN === '1' &&
-    env.INDAGO_TEST_LOGIN_HOST === 'greatstone-indago-portal.netlify.app' &&
+    env.INDAGO_TEST_LOGIN_HOST === 'greatstone-indago-preview.netlify.app' &&
     url.protocol === 'https:' &&
     url.hostname === env.INDAGO_TEST_LOGIN_HOST;
 }

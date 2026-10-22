@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { handleAuthRequest, previewLoginAllowed, previewUsers } from './preview-login.mjs';
 
-const previewHost = 'https://greatstone-indago-portal.netlify.app';
-const env = { INDAGO_TEST_LOGIN: '1', INDAGO_TEST_LOGIN_HOST: 'greatstone-indago-portal.netlify.app' };
+const previewHost = 'https://greatstone-indago-preview.netlify.app';
+const env = { INDAGO_TEST_LOGIN: '1', INDAGO_TEST_LOGIN_HOST: 'greatstone-indago-preview.netlify.app' };
 const auth = { handler: async () => new Response('auth reached') };
 const request = (host, path, body) => new Request(`${host}/api/auth/${path}`, {
   method: body ? 'POST' : 'GET',
@@ -14,6 +14,7 @@ const request = (host, path, body) => new Request(`${host}/api/auth/${path}`, {
 test('preview sign-in is off by default and rejects the production alias', async () => {
   assert.equal(previewLoginAllowed(request(previewHost, 'preview-config'), {}), false);
   assert.equal(previewLoginAllowed(request('https://indago.greatstoneint.com', 'preview-config'), env), false);
+  assert.equal(previewLoginAllowed(request('https://greatstone-indago-portal.netlify.app', 'preview-config'), env), false);
   assert.equal(previewLoginAllowed(request(previewHost.replace('https:', 'http:'), 'preview-config'), env), false);
   assert.equal((await handleAuthRequest(request(previewHost, 'sign-in/email', { email: previewUsers.editor }), auth, {})).status, 404);
   assert.equal((await handleAuthRequest(request('https://indago.greatstoneint.com', 'sign-in/email', { email: previewUsers.editor }), auth, env)).status, 404);
