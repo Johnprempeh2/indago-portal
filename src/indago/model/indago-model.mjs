@@ -108,6 +108,44 @@ export function filterWbs(state, f) {
     (!q || `${w.id} ${w.task} ${w.exit} ${w.person} ${w.blocker}`.toLowerCase().includes(q)));
 }
 
+// The shown work packages in workstream groups, in plan order (GRE-1891).
+// `done` and `total` count the whole workstream, so a filter does not change them.
+export function wbsGroups(state, rows) {
+  const groups = [];
+  rows.forEach((w) => {
+    let g = groups[groups.length - 1];
+    if (!g || g.name !== w.ws) {
+      const all = state.wbs.filter((x) => x.ws === w.ws);
+      groups.push(g = { name: w.ws, items: [], total: all.length, done: all.filter((x) => x.status === 'Complete').length });
+    }
+    g.items.push(w);
+  });
+  return groups;
+}
+
+// The workstream to show first: the first with work not yet complete, else the first (GRE-1891).
+export function focusWorkstream(state) {
+  const names = uniq(state.wbs.map((w) => w.ws));
+  return names.find((n) => state.wbs.some((w) => w.ws === n && w.status !== 'Complete')) || names[0] || '';
+}
+
+// The gate to show first: the one asked for, else the next gate not yet approved, else the last.
+export function focusGate(state, wanted = '') {
+  const g = state.gates.find((x) => x.id === wanted) || state.gates.find((x) => !isApproved(x)) || state.gates[state.gates.length - 1];
+  return g ? g.id : '';
+}
+
+// Open risks on the main path, closed ones folded away, and the counts the Risks screen leads with.
+export function riskSummary(risks) {
+  const open = risks.filter((r) => r.status !== 'Closed');
+  return {
+    open,
+    closed: risks.filter((r) => r.status === 'Closed'),
+    highHigh: open.filter(isHighHigh).length,
+    noOwner: open.filter((r) => !String(r.owner || '').trim()).length,
+  };
+}
+
 // Gantt cells W1..Post for one work package.
 export function ganttCells(w) {
   const i0 = PERIODS.indexOf(w.start);
