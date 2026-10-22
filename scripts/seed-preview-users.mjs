@@ -23,8 +23,8 @@ const { auth } = await import('../netlify/functions/lib/auth.mjs');
 try {
   for (const role of ['editor', 'viewer']) {
     const email = previewUsers[role];
-    await db.pool.query(`INSERT INTO indago.members(email, role) VALUES($1, $2)
-      ON CONFLICT (email) DO UPDATE SET role = EXCLUDED.role`, [email, role]);
+    await db.pool.query(`INSERT INTO indago.members(email, role, facilitator) VALUES($1, $2, $3)
+      ON CONFLICT (email) DO UPDATE SET role = EXCLUDED.role, facilitator = EXCLUDED.facilitator`, [email, role, role === 'editor']);
     const existing = await db.pool.query('SELECT 1 FROM "user" WHERE email = $1', [email]);
     if (!existing.rows.length) {
       await auth.api.signUpEmail({ body: {
