@@ -14,8 +14,9 @@ const SimpleTable = ({ head, rows }) => (
 const approved = (g) => !!g && g.status.startsWith('Approved');
 
 // The investigation one stage at a time, with the first-week checklist
-// first and the Toolkit reference behind "+" toggles (GRE-1891).
-export default function Investigation({ state, canEdit, actions }) {
+// first and the Toolkit reference behind "+" toggles (GRE-1891). The method
+// detail and the Toolkit reference are for facilitators only (GRE-1942).
+export default function Investigation({ state, canEdit, actions, facilitator = false }) {
   const tk = state.toolkit;
   const [current, setCurrent] = useState(() => focusStage(state));
   if (!tk) return <p className="empty">The Delivery Toolkit content has not loaded yet.</p>;
@@ -44,13 +45,13 @@ export default function Investigation({ state, canEdit, actions }) {
         <ul className="list mt-sm">
           {ws.map((w) => <li key={w.id}><span className="id">{w.id}</span><span className="grow">{w.task}</span><Pill status={w.status} /></li>)}
         </ul>
-        <details className="ns-more mt-sm">
+        {facilitator && <details className="ns-more mt-sm">
           <summary>How this stage runs</summary>
           <p>{s.intro}</p>
           {s.steps.length > 0 && <ul className="iv-steps">{s.steps.map((x) => <li key={x}>{x}</li>)}</ul>}
           {s.inst.length > 0 && <p><b>Instruments:</b> {s.inst.join(', ')}</p>}
           <p><b>Work packages:</b> {names.join(', ')}</p>
-        </details>
+        </details>}
         <div className="gate-nav">
           {prev ? <button type="button" className="cc-go" onClick={() => setCurrent(prev.n)}>← Stage {prev.n}</button> : <span />}
           {next && <button type="button" className="cc-go primary" onClick={() => setCurrent(next.n)}>Stage {next.n} →</button>}
@@ -63,7 +64,7 @@ export default function Investigation({ state, canEdit, actions }) {
     <>
       <Governs>Delivery Toolkit v3.0 · governs the investigation</Governs>
       <h2 className="section-title">How the investigation runs</h2>
-      <p className="lead">Six stages, one at a time. Each stage ends at a gate. The Toolkit detail is behind the <b>+</b> buttons.</p>
+      <p className="lead">Six stages, one at a time. Each stage ends at a gate.{facilitator && <> The Toolkit detail is behind the <b>+</b> buttons.</>}</p>
 
       <section className={`card mb iv-check${ready ? ' ok' : ''}`} aria-labelledby="iv-check-h">
         <div className="cc-head">
@@ -108,7 +109,7 @@ export default function Investigation({ state, canEdit, actions }) {
 
       {stageCard()}
 
-      <div className="cc-more mt-lg">
+      {facilitator && <div className="cc-more mt-lg">
         <details className="ns-more">
           <summary>Mandate and operating rules</summary>
           <section className="card">
@@ -159,7 +160,7 @@ export default function Investigation({ state, canEdit, actions }) {
             <ul className="list">{tk.rhythm.map((r) => <li key={r[0]}><span className="id wide-id">{r[0]}</span><span>{r[1]}</span></li>)}</ul>
           </section>
         </details>
-      </div>
+      </div>}
     </>
   );
 }

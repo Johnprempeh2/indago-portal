@@ -43,7 +43,7 @@ export function Tabs(props) {
 }
 export { React, flushSync };
 // North Star with an in-memory store that applies the IND-NS-001 approval rule like the server.
-export function NorthStarHost({ canEdit = true, calls = [], initial = {} }) {
+export function NorthStarHost({ canEdit = true, facilitator = false, calls = [], initial = {}, history = [] }) {
   const [fields, setFields] = React.useState(initial);
   const actions = {
     save: async (key, value) => {
@@ -51,9 +51,9 @@ export function NorthStarHost({ canEdit = true, calls = [], initial = {} }) {
       if (key === 'approval.status' && value.startsWith('Approved') && fields['convergence.6.answer'] !== 'Yes') throw new Error('Record participant acceptance as Yes before approval.');
       setFields(current => ({ ...current, [key]: value }));
     },
-    addHypothesis: async () => ({ id: 'NS-H-07' }), sendHypothesis: async () => {}, history: async () => [],
+    addHypothesis: async () => ({ id: 'NS-H-07' }), sendHypothesis: async () => {}, history: async () => history,
   };
-  return React.createElement(NorthStar, { state: demoState(), canEdit, northStar: { template: demoNorthStar, fields }, northStarActions: actions,
+  return React.createElement(NorthStar, { state: demoState(), canEdit, facilitator, northStar: { template: demoNorthStar, fields }, northStarActions: actions,
     onOpen: () => {}, onEvidence: () => {}, files: [] });
 }
 `;
@@ -83,12 +83,12 @@ after(() => {
   win.happyDOM.close();
 });
 
-function render(Screen, { canEdit = true, state = lib.demoState(), actions = {}, files = [], fileActions } = {}) {
+function render(Screen, { canEdit = true, facilitator = false, state = lib.demoState(), actions = {}, files = [], fileActions } = {}) {
   const el = document.createElement('div');
   document.body.appendChild(el);
   const calls = [];
   const spy = new Proxy(actions, { get: (t, k) => t[k] || ((...a) => calls.push([k, ...a])) });
-  const root = lib.mount(el, lib.React.createElement(Screen, { state, canEdit, actions: spy, files, fileActions, onOpen: () => {} }));
+  const root = lib.mount(el, lib.React.createElement(Screen, { state, canEdit, facilitator, actions: spy, files, fileActions, onOpen: () => {} }));
   return { el, calls, unmount: () => { root.unmount(); el.remove(); } };
 }
 
@@ -244,7 +244,7 @@ test('IND-NS-001: Approved stays unavailable until acceptance is Yes', async () 
 });
 
 test('North Star guided view gives a Viewer no inputs, and the full record still shows every section', () => {
-  const ns = renderNorthStar({ canEdit: false });
+  const ns = renderNorthStar({ canEdit: false, facilitator: true });
   assert.equal(ns.el.querySelectorAll('.ns-guide textarea, .ns-guide select, .ns-guide input, .ns-card button.ns-chip, .ns-add').length, 0);
   ns.click(ns.button('Full record'));
   assert.equal(ns.el.querySelector('.ns-guide'), null);
@@ -384,7 +384,7 @@ test('Risks lists open risks first, folds closed ones, and opens the wording of 
 });
 
 test('Investigation shows one stage at a time, opens on the next gate, and folds the Toolkit reference', () => {
-  const { el, calls, unmount } = render(lib.SCREENS.Investigation);
+  const { el, calls, unmount } = render(lib.SCREENS.Investigation, { facilitator: true });
   assert.equal(el.querySelectorAll('.iv-stage').length, 1, 'one stage card');
   assert.ok(el.querySelector('#stage-02'), 'opens on the stage of the next gate to approve (G2)');
   assert.match(el.querySelector('.gt-current').textContent, /^Stage 02: .+G2/, 'the chosen stage is named over the numbered buttons');
@@ -459,4 +459,123 @@ test('Traceability leads with the chain, one progress line and the look-up; the 
   assert.ok(el.querySelector('details:not([open]) .row-bar'), 'the area breakdown is folded');
   assert.ok(el.querySelector('details:not([open]) table'), 'the classification table is folded');
   unmount();
+});
+
+// GRE-1942: client users see their own stages, checklist, evidence and progress;
+// the facilitator guidance shows only when the host says the user is a facilitator.
+const summaries = (el) => [...el.querySelectorAll('summary')].map((x) => x.textContent);
+
+test('a client user does not see the Toolkit reference or stage method; a facilitator does', () => {
+  const client = render(lib.SCREENS.Investigation);
+  for (const t of ['Mandate and operating rules', 'Document authority', 'Control rhythm', 'How this stage runs']) {
+    assert.ok(!summaries(client.el).includes(t), `client: ${t} is hidden`);
+  }
+  assert.ok(client.el.querySelector('.iv-stage') && client.el.querySelector('.iv-check #ck0'), 'client still sees the stage and the checklist');
+  client.unmount();
+  const fac = render(lib.SCREENS.Investigation, { facilitator: true });
+  for (const t of ['Mandate and operating rules', 'How this stage runs']) assert.ok(summaries(fac.el).includes(t), `facilitator: ${t} shows`);
+  fac.unmount();
+});
+
+test('a client user does not see the gate guidance or the Toolkit output; a facilitator does', () => {
+  const client = render(lib.SCREENS.Gates);
+  assert.ok(!summaries(client.el).includes('How gates work'));
+  assert.doesNotMatch(client.el.textContent, /Toolkit output:/);
+  assert.match(client.el.textContent, /Owner:/, 'the gate owner still shows');
+  client.unmount();
+  const fac = render(lib.SCREENS.Gates, { facilitator: true });
+  assert.ok(summaries(fac.el).includes('How gates work'));
+  assert.match(fac.el.textContent, /Toolkit output:/);
+  fac.unmount();
+});
+
+test('a client user does not see the internal rules for the client IDs on Evidence', () => {
+  const client = render(lib.SCREENS.Evidence);
+  assert.ok(!summaries(client.el).includes("Rules for the client's IDs"));
+  client.unmount();
+  const fac = render(lib.SCREENS.Evidence, { facilitator: true });
+  assert.ok(summaries(fac.el).includes("Rules for the client's IDs"));
+  fac.unmount();
+});
+
+test('North Star: a client user gets no guardrails, timer or Greatstone notes in either view', () => {
+  const ns = renderNorthStar();
+  assert.equal(ns.el.querySelector('.ns-tools summary').textContent, 'Tools');
+  assert.doesNotMatch(ns.el.textContent, /Facilitator guide|Workshop timer/);
+  ns.click([...ns.el.querySelectorAll('.ns-rail button')].find((b) => b.textContent.includes('Ask the hard questions')));
+  assert.match(ns.el.textContent, /Gordon’s words \(verbatim\)/, 'the client record field still shows');
+  assert.doesNotMatch(ns.el.textContent, /Greatstone note|Greatstone interpretation/);
+  ns.click(ns.button('Full record'));
+  assert.equal(ns.el.querySelector('.ns-guardrails'), null);
+  assert.equal(ns.el.querySelector('.ns-clock'), null);
+  assert.doesNotMatch(ns.el.textContent, /Greatstone note|Greatstone challenge|internal facilitator edition/);
+  assert.equal(ns.el.querySelectorAll('.ns-section').length, 10, 'every record section still shows');
+  ns.unmount();
+});
+
+test('North Star: a facilitator sees the guardrails, timer and Greatstone notes', () => {
+  const ns = renderNorthStar({ facilitator: true });
+  assert.equal(ns.el.querySelector('.ns-tools summary').textContent, 'Tools and guide');
+  assert.match(ns.el.textContent, /Facilitator guide/);
+  ns.click(ns.button('Full record'));
+  assert.ok(ns.el.querySelector('.ns-guardrails'));
+  assert.match(ns.el.textContent, /Greatstone note \/ interpretation/);
+  assert.match(ns.el.textContent, /Greatstone challenge/);
+  ns.unmount();
+});
+
+// Mikey's review on GRE-1942: saved Greatstone notes must not reach a client through
+// either History control, and North Star headings must not read as a facilitator script.
+const savedNotes = [
+  { id: 1, field_key: 'question.0.interpretation', old_value: '', new_value: 'Greatstone view: margin risk', actor: 'f@example.test', changed_at: '2026-10-22T10:00:00Z' },
+  { id: 2, field_key: 'draft.challenge', old_value: '', new_value: 'Bolder alternative', actor: 'f@example.test', changed_at: '2026-10-22T10:01:00Z' },
+  { id: 3, field_key: 'draft.agreed', old_value: '', new_value: 'Agreed wording', actor: 'c@example.test', changed_at: '2026-10-22T10:02:00Z' },
+];
+const openHistory = async (ns, from) => {
+  if (from === 'record') ns.click(ns.button('Full record'));
+  ns.click(ns.button('Change history'));
+  for (let i = 0; i < 20 && !ns.el.querySelector('.ns-history'); i++) await settle();
+  return ns.el.querySelector('.ns-history').textContent;
+};
+
+for (const from of ['guided', 'record']) {
+  test(`North Star change history (${from}): a client does not see saved Greatstone notes; a facilitator does`, async () => {
+    let ns = renderNorthStar({ history: savedNotes });
+    let text = await openHistory(ns, from);
+    assert.match(text, /draft\.agreed: Empty → Agreed wording/);
+    assert.doesNotMatch(text, /Greatstone view|Bolder alternative|interpretation|draft\.challenge/);
+    ns.unmount();
+    ns = renderNorthStar({ history: savedNotes.slice(0, 2) });
+    text = await openHistory(ns, from);
+    assert.match(text, /No changes yet\./, 'only notes saved: the client sees an empty history');
+    ns.unmount();
+    ns = renderNorthStar({ facilitator: true, history: savedNotes });
+    text = await openHistory(ns, from);
+    assert.match(text, /Greatstone view: margin risk/);
+    assert.match(text, /Bolder alternative/);
+    ns.unmount();
+  });
+}
+
+test('North Star: a client gets plain session headings, not the run of show or facilitator cues', () => {
+  const facilitatorCues = /Ninety-minute|run of show|Planned outcome|Facilitator challenge|provocative interrogation|Minutes 0|our challenge|then your note/;
+  let ns = renderNorthStar();
+  const part = title => ns.click([...ns.el.querySelectorAll('.ns-rail button')].find((b) => b.textContent.includes(title)));
+  part('Session notes');
+  assert.match(ns.el.querySelector('.ns-card').textContent, /Part 1/);
+  assert.ok(ns.el.querySelector('.ns-card textarea, .ns-card .ns-field'), 'the client still records session notes');
+  assert.doesNotMatch(ns.el.textContent, facilitatorCues);
+  part('Ask the hard questions');
+  assert.doesNotMatch(ns.el.textContent, facilitatorCues);
+  ns.click(ns.button('Full record'));
+  const headings = [...ns.el.querySelectorAll('.ns-section h3')].map(h => h.textContent);
+  assert.ok(headings.includes('Session notes') && headings.includes('The hard questions') && headings.includes('Test the draft'), headings.join(' | '));
+  assert.doesNotMatch(ns.el.textContent, facilitatorCues);
+  ns.unmount();
+  ns = renderNorthStar({ facilitator: true });
+  ns.click(ns.button('Full record'));
+  assert.match(ns.el.textContent, /Ninety-minute workshop run of show/);
+  assert.match(ns.el.textContent, /Planned outcome/);
+  assert.match(ns.el.textContent, /Facilitator challenge and convergence test/);
+  ns.unmount();
 });

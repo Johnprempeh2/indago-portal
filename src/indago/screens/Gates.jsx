@@ -6,7 +6,8 @@ const approved = (g) => g.status.startsWith('Approved');
 
 // One gate at a time, with the six gates as a journey above it (GRE-1891).
 // A "What is next" button can ask for a gate: jump.focus = "gate-card-G3".
-export default function Gates({ state, canEdit, actions, northStar, onOpen, jump }) {
+// The Toolkit guidance on gates is for facilitators only (GRE-1942).
+export default function Gates({ state, canEdit, actions, northStar, onOpen, jump, facilitator = false }) {
   const stages = state.toolkit?.stages || [];
   const [current, setCurrent] = useState(() => focusGate(state, String(jump?.focus || '').replace('gate-card-', '')));
   const i = Math.max(0, state.gates.findIndex((g) => g.id === current));
@@ -36,7 +37,7 @@ export default function Gates({ state, canEdit, actions, northStar, onOpen, jump
             <p className="muted"><b>North Star evidence:</b> <button className="link-button" onClick={() => onOpen('north-star')}>IND-NS-001</button>. Gate decision remains a separate human action.</p>}
           <details className="ns-more mt-sm">
             <summary>More about this gate</summary>
-            {st.o && <p><b>Toolkit output:</b> {st.o}</p>}
+            {facilitator && st.o && <p><b>Toolkit output:</b> {st.o}</p>}
             <p><b>Owner:</b> {g.owner}</p>
           </details>
         </div>
@@ -58,10 +59,10 @@ export default function Gates({ state, canEdit, actions, northStar, onOpen, jump
       <Governs>Master Project Plan · Stage Gates &amp; Milestones · criteria from the Toolkit</Governs>
       <h2 className="section-title">Gates and milestones</h2>
       <p className="lead">Six gates, one at a time. A gate approves <b>reliance on findings</b>.</p>
-      <details className="ns-more mb">
+      {facilitator && <details className="ns-more mb">
         <summary>How gates work</summary>
         <p>Gates control <b>reliance on findings</b>, not whether parallel work may start (Toolkit §3). Open evidence may stay open if it is disclosed and no material recommendation depends on it.</p>
-      </details>
+      </details>}
 
       <ol className="gt-steps" aria-label="Gates">
         {state.gates.map((x) => (
