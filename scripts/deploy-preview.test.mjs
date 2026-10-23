@@ -54,7 +54,7 @@ test('PR gate, change filter and stale Netlify cancellation', async (t) => {
     git('add', file)
     git('commit', '-qm', 'change')
     env.FAKE_PR = JSON.stringify({ number: 12, state: 'OPEN', isDraft: false,
-      headRefOid: git('rev-parse', 'HEAD').stdout.trim(), baseRefOid: base, labels: [{ name: 'preview' }] })
+      headRefOid: git('rev-parse', 'HEAD').stdout.trim(), baseRefOid: base, baseRefName: 'main', labels: [{ name: 'preview' }] })
   }
   commit('README.md', 'docs')
   assert.match((await run()).stdout, /Skipped.*non-site files only/)

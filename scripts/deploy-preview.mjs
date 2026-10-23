@@ -31,8 +31,8 @@ async function main() {
   if (command('git', ['status', '--porcelain'])) throw new Error('a clean checkout is required')
   const sha = command('git', ['rev-parse', 'HEAD'])
   const pr = JSON.parse(command('gh', ['pr', 'view', number, '--repo', 'Johnprempeh2/indago-portal',
-    '--json', 'number,state,isDraft,headRefOid,baseRefOid,labels']))
-  if (pr.state !== 'OPEN' || pr.isDraft || pr.headRefOid !== sha)
+    '--json', 'number,state,isDraft,headRefOid,baseRefOid,baseRefName,labels']))
+  if (pr.state !== 'OPEN' || pr.isDraft || pr.baseRefName !== 'main' || pr.headRefOid !== sha)
     throw new Error('preview requires an open, non-draft PR at this exact commit')
   const comments = await request(`${gsam}/api/issues/${process.env.GSAM_TASK_ID}/comments`, process.env.GSAM_API_KEY)
   const ready = pr.labels.some((label) => label.name === 'preview') || comments.some((comment) =>
