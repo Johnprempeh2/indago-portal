@@ -30,10 +30,11 @@ test('PR gate, change filter and stale Netlify cancellation', async (t) => {
   writeFileSync(join(dir, 'bin/netlify'), '#!/bin/sh\nprintf "%s\\n" "$*" >> "$DEPLOY_LOG"\n', { mode: 0o755 })
   let deploys = []
   let cancelled = []
+  let comments = []
   const server = createServer((req, res) => {
     res.setHeader('Content-Type', 'application/json')
     if (req.method === 'POST') cancelled.push(req.url)
-    res.end(JSON.stringify(req.url.endsWith('/comments') ? [] :
+    res.end(JSON.stringify(req.url.endsWith('/comments') ? comments :
       req.url.endsWith(`${site}.netlify.app`) ? { id: '21ae4ef9-7349-4349-8713-40619e1c0c07', name: site } : deploys))
   })
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
@@ -63,6 +64,15 @@ test('PR gate, change filter and stale Netlify cancellation', async (t) => {
   assert.match((await run()).stderr, /non-draft PR/)
   env.FAKE_PR = JSON.stringify({ ...JSON.parse(env.FAKE_PR), isDraft: false, labels: [] })
   assert.match((await run()).stderr, /preview refused/)
+  comments = [{ authorType: 'user', authorUserId: 'another-user', body: 'Preview ready for PR #12' }]
+  assert.match((await run()).stderr, /preview refused/)
+  comments = [{ authorType: 'agent', authorAgentId: 'another-agent', body: 'Preview ready for PR #12' }]
+  assert.match((await run()).stderr, /preview refused/)
+  comments = [{ authorType: 'user', authorUserId: 'UGJwnXKO0P0yBvVh4krv4LH3EThDwrRP', body: 'Preview ready for PR #12' }]
+  assert.equal((await run()).status, 0)
+  comments = [{ authorType: 'agent', authorAgentId: '8950d7f0-4d3b-40b0-93d8-b67aead0a2f7', body: 'Preview ready for PR #12' }]
+  assert.equal((await run()).status, 0)
+  comments = []
   env.FAKE_PR = JSON.stringify({ ...JSON.parse(env.FAKE_PR), labels: [{ name: 'preview' }] })
   deploys = [{ id: 'old', state: 'building', title: `gsam-source:preview:12:${base}` },
     { id: 'other', state: 'building', title: `gsam-source:preview:13:${base}` }]

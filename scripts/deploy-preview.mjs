@@ -2,6 +2,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 
 const sites = new Set(['greatstone-indago-portal', 'greatstone-indago-preview'])
 const mikeyId = '8950d7f0-4d3b-40b0-93d8-b67aead0a2f7'
+const johnId = 'UGJwnXKO0P0yBvVh4krv4LH3EThDwrRP'
 const [site, number] = process.argv.slice(2)
 const token = process.env.NETLIFY_AUTH_TOKEN
 const api = process.env.NODE_ENV === 'test' && token === 'test'
@@ -36,7 +37,8 @@ async function main() {
     throw new Error('preview requires an open, non-draft PR at this exact commit')
   const comments = await request(`${gsam}/api/issues/${process.env.GSAM_TASK_ID}/comments`, process.env.GSAM_API_KEY)
   const ready = pr.labels.some((label) => label.name === 'preview') || comments.some((comment) =>
-    (comment.authorType === 'user' || comment.authorAgentId === mikeyId) &&
+    ((comment.authorType === 'user' && comment.authorUserId === johnId) ||
+      (comment.authorType === 'agent' && comment.authorAgentId === mikeyId)) &&
     comment.body.trim() === `Preview ready for PR #${number}`)
   if (!ready) throw new Error('preview refused: add the preview label or get Mikey or John to mark it ready')
 
