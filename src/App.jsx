@@ -6,6 +6,8 @@ import IndagoApp from './indago/IndagoApp.jsx';
 import { isFacilitator, visibleHistory } from './indago/model/audience.mjs';
 import GreatstoneFooter from './indago/GreatstoneFooter.jsx';
 
+// Preview build proof for GRE-2056.
+
 export default function App() {
   const { data: session, isPending } = authClient.useSession();
   const [openAccess, setOpenAccess] = useState(null);
