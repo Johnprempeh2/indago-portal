@@ -33,7 +33,8 @@ test('PR gate, change filter and stale Netlify cancellation', async (t) => {
   const server = createServer((req, res) => {
     res.setHeader('Content-Type', 'application/json')
     if (req.method === 'POST') cancelled.push(req.url)
-    res.end(JSON.stringify(req.url.endsWith('/comments') ? [] : deploys))
+    res.end(JSON.stringify(req.url.endsWith('/comments') ? [] :
+      req.url.endsWith(`${site}.netlify.app`) ? { id: '21ae4ef9-7349-4349-8713-40619e1c0c07', name: site } : deploys))
   })
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   t.after(() => server.close())
@@ -68,5 +69,5 @@ test('PR gate, change filter and stale Netlify cancellation', async (t) => {
   const result = await run()
   assert.equal(result.status, 0, result.stderr)
   assert.deepEqual(cancelled, ['/api/v1/deploys/old/cancel'])
-  assert.match(readFileSync(env.DEPLOY_LOG, 'utf8'), /deploy --site greatstone-indago-preview --message gsam-source:preview:12:/)
+  assert.match(readFileSync(env.DEPLOY_LOG, 'utf8'), /deploy --site 21ae4ef9-7349-4349-8713-40619e1c0c07 --message gsam-source:preview:12:/)
 })

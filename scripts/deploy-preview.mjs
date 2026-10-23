@@ -40,7 +40,9 @@ async function main() {
     comment.body.trim() === `Preview ready for PR #${number}`)
   if (!ready) throw new Error('preview refused: add the preview label or get Mikey or John to mark it ready')
 
-  const deploys = await request(`${api}/api/v1/sites/${site}.netlify.app/deploys?per_page=100`, token)
+  const target = await request(`${api}/api/v1/sites/${site}.netlify.app`, token)
+  if (target.name !== site || !/^[0-9a-f-]{36}$/.test(target.id)) throw new Error('Netlify site identity mismatch')
+  const deploys = await request(`${api}/api/v1/sites/${target.id}/deploys?per_page=100`, token)
   const marker = new RegExp(`^gsam-source:preview:${number}:([0-9a-f]{40})$`)
   for (const deploy of deploys) {
     if (!marker.test(deploy.title || '') || !['new', 'enqueued', 'building', 'uploading', 'processing', 'preparing'].includes(deploy.state)) continue
@@ -57,7 +59,7 @@ async function main() {
   }
   command('npm', ['run', 'build'])
   const message = `gsam-source:preview:${number}:${sha}`
-  const result = spawnSync('netlify', ['deploy', '--site', site, '--message', message], { stdio: 'inherit' })
+  const result = spawnSync('netlify', ['deploy', '--site', target.id, '--message', message], { stdio: 'inherit' })
   if (result.status !== 0) throw new Error(`netlify deploy failed: ${result.error?.message || result.status}`)
 }
 
