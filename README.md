@@ -10,6 +10,8 @@ npm run preflight
 npm run dev
 ```
 
+Netlify uses `scripts/ignore-build.mjs` before builds on both linked sites. It skips a change only when every file since the cached build is Markdown, under `docs/` or `.github/`, a test file (`*.test.*`), or under `netlify/database/tests/`. A site file, migration, package change, or missing Git comparison builds normally. Netlify treats exit code 0 as skip and 1 as build. This rule also applies to production builds on `main` and does not apply to builds started by build hooks.
+
 The protected portal is at `/portal/indago` and `/indago` redirects there. `/demo/` is a clearly marked preview with invented records only. It has no database connection, so it can be reviewed while the live data path awaits security review. Both routes send `noindex`; the public website does not link to either.
 
 `src/indago/` contains the portable screens, model, data adapter and demo fixture. `src/App.jsx` is the stand-alone host. `netlify/functions/indago/` contains the portal request handler; the route adapter and shared Better Auth configuration stay outside that folder. The public website's published footer and legal links replace the stand-alone footer when the module moves.
