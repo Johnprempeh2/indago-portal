@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MOVES, challengeFor, makeDraft, nextMove } from './interview.mjs';
+import { MOVES, challengeFor, makeDraft, nextMove, proposedOutcomes } from './interview.mjs';
 
 const answers = MOVES.map((move, index) => ({ id: `answer-${index}`, move: move.id,
   original: [
@@ -39,4 +39,11 @@ test('draft links each proposal to source answers and cannot approve itself', ()
   assert.ok(draft.outcomes.length >= 3 && draft.outcomes.length <= 5);
   assert.ok(draft.evidenceRequests.every(r => r.status === 'Greatstone hypothesis' && r.sources.length));
   assert.ok(!JSON.stringify(draft).includes('independently verified fact'));
+  assert.ok(draft.outcomes.every(outcome => outcome.status === 'client statement'));
+});
+
+test('outcomes must be 3 to 5 participant statements', () => {
+  assert.throws(() => proposedOutcomes('Direction\nOne\nTwo'), /3 to 5/);
+  assert.throws(() => proposedOutcomes('Direction\nOne\nTwo\nThree\nFour\nFive\nSix'), /3 to 5/);
+  assert.throws(() => makeDraft(answers.map(a => a.move === 'convergence' ? { ...a, original: 'Direction\nOne' } : a)), /3 to 5/);
 });

@@ -33,7 +33,8 @@ test('API keeps first words, stores challenges separately, and submits only a dr
   let session = await created.json();
   const id = session.id;
   for (const [index, move] of MOVES.entries()) {
-    const response = await handleInterview(post({ move: move.id, original: `Original ${index}\nLine 2` }), client, `interviews/${id}/answers`, 'client-one');
+    const original = move.id === 'convergence' ? 'Direction\nOutcome one\nOutcome two\nOutcome three' : `Original ${index}\nLine 2`;
+    const response = await handleInterview(post({ move: move.id, original }), client, `interviews/${id}/answers`, 'client-one');
     assert.equal(response.status, 200);
     session = await response.json();
   }

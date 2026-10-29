@@ -12,9 +12,13 @@
 .interview h2 { font-size: clamp(1.3rem, 3vw, 1.8rem); line-height: 1.3; margin: .4rem 0 1rem; }
 .interview h3 { margin-top: 2rem; }
 .interview .intro { font-size: 1.15rem; color: #c4c8c1; }
+.interview .opening-question { font-size: 1.15rem; font-weight: 700; margin: 1.4rem 0; }
+.interview .interview-details { margin: 1rem 0; }
+.interview .interview-details summary { color: #c8ff00; cursor: pointer; font-weight: 700; padding: .7rem 0; }
+.interview a { color: #c8ff00; text-underline-offset: .2em; }
 .interview .notice, .interview .preview-mark { border-left: 3px solid #4ecdc4; padding: .6rem 1rem; background: #1b503933; color: #d4e4dc; }
 .interview .preview-mark { border-color: #c8ff00; }
-.interview .progress { color: #9ca29b; margin: 2rem 0; }
+.interview .progress { color: #c4c8c1; margin: .8rem 0; }
 .interview .answer-card, .interview .current { margin: 1.5rem 0; padding: clamp(1.2rem, 4vw, 2rem); background: #1c1c1c; border: 1px solid #ffffff1c; border-radius: 18px; }
 .interview .current { border-color: #c8ff0040; }
 .interview blockquote { white-space: pre-wrap; margin: 0 0 1.4rem; padding-left: 1rem; border-left: 2px solid #c8ff00; overflow-wrap: anywhere; }

@@ -1,4 +1,4 @@
-import { challengeFor, makeDraft, MOVES } from '../../../src/indago/model/interview.mjs';
+import { challengeFor, makeDraft, MOVES, proposedOutcomes } from '../../../src/indago/model/interview.mjs';
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status,
   headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -62,6 +62,9 @@ export async function handleInterview(request, client, route, userId, facilitato
   if (parts[2] === 'answers') {
     if (!MOVES.some(move => move.id === body.move) || typeof body.original !== 'string' ||
         !body.original.trim() || body.original.length > 20000) return json({ error: 'Invalid answer.' }, 400);
+    if (body.move === 'convergence') {
+      try { proposedOutcomes(body.original); } catch (error) { return json({ error: error.message }, 400); }
+    }
     if (session.answers.some(answer => answer.move === body.move)) return json({ error: 'Original answer is already recorded.' }, 409);
     await client.query(`INSERT INTO indago.client_interview_answers(id, session_id, move, original)
       VALUES ($1,$2,$3,$4)`, [crypto.randomUUID(), id, body.move, body.original]);

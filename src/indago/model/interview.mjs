@@ -31,18 +31,16 @@ export function challengeFor(move, answer, preceding = [], attempt = 0) {
 }
 
 const source = answer => ({ move: answer.move, answerId: answer.id, label: 'client statement' });
+export function proposedOutcomes(text) {
+  const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+  if (lines.length < 4 || lines.length > 6) throw new Error('Give 3 to 5 proposed outcomes on separate lines after your direction.');
+  return lines.slice(1);
+}
 export function makeDraft(answers, correctedSummary) {
   const by = Object.fromEntries(answers.map(answer => [answer.move, answer]));
   if (MOVES.some(move => !by[move.id]?.original?.trim())) throw new Error('Complete each conversation move before drafting.');
   const summary = correctedSummary?.trim() || MOVES.map(move => `${move.title}: ${by[move.id].original}`).join('\n');
-  const lines = by.convergence.original.split('\n').map(x => x.trim()).filter(Boolean);
-  const outcomes = lines.slice(1, 6).map(text => ({ text, status: 'client statement', sources: [source(by.convergence)] }));
-  const suggested = [
-    { text: `Measure the client outcome in: ${by.value.original.trim()}`, sources: [source(by.value)] },
-    { text: `Test repeat demand for: ${by.economics.original.trim()}`, sources: [source(by.economics)] },
-    { text: `Track the operating boundary in: ${by.boundaries.original.trim()}`, sources: [source(by.boundaries)] },
-  ];
-  for (const item of suggested) if (outcomes.length < 3) outcomes.push({ ...item, status: 'Greatstone hypothesis' });
+  const outcomes = proposedOutcomes(by.convergence.original).map(text => ({ text, status: 'client statement', sources: [source(by.convergence)] }));
   const candidates = [
     { framing: 'Client outcome', text: `By the horizon described in the conversation, Indago could focus on ${by.value.original.trim()}`, sources: [source(by.value), source(by.convergence)] },
     { framing: 'Strategic identity', text: `Indago could become ${by.ambition.original.trim()}, shaped by ${by.boundaries.original.trim()}`, sources: [source(by.ambition), source(by.boundaries)] },
