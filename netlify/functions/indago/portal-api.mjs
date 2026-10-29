@@ -1,4 +1,5 @@
 import { handleNorthStar } from './north-star.mjs';
+import { handleInterview } from './interview.mjs';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -11,7 +12,8 @@ async function bodyOf(request) {
   return JSON.parse(text);
 }
 
-export async function handlePortalRequest(request, client, role, route, openAccess = false, facilitator = false) {
+export async function handlePortalRequest(request, client, role, route, openAccess = false, facilitator = false, userId = '') {
+    if (route === 'interviews' || route.startsWith('interviews/')) return handleInterview(request, client, route, userId, facilitator, openAccess);
     if (route.startsWith('north-star')) return openAccess
       ? json({ error: 'North Star requires named sign-in.' }, 403)
       : handleNorthStar(request, client, role, route);
