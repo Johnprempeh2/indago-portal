@@ -61,7 +61,9 @@ async function main() {
   }
   command('npm', ['run', 'build'])
   const message = `gsam-source:preview:${number}:${sha}`
-  const result = spawnSync('netlify', ['deploy', '--site', target.id, '--message', message], { stdio: 'inherit' })
+  // The build above is at the exact PR head. Rebuilding inside Netlify CLI also
+  // tries to write .netlify in the shared parent checkout outside this worktree.
+  const result = spawnSync('netlify', ['deploy', '--no-build', '--site', target.id, '--message', message], { stdio: 'inherit' })
   if (result.status !== 0) throw new Error(`netlify deploy failed: ${result.error?.message || result.status}`)
 }
 
