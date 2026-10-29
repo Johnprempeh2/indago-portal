@@ -79,5 +79,5 @@ test('PR gate, change filter and stale Netlify cancellation', async (t) => {
   const result = await run()
   assert.equal(result.status, 0, result.stderr)
   assert.deepEqual(cancelled, ['/api/v1/deploys/old/cancel'])
-  assert.match(readFileSync(env.DEPLOY_LOG, 'utf8'), /deploy --no-build --site 21ae4ef9-7349-4349-8713-40619e1c0c07 --message gsam-source:preview:12:/)
+  assert.match(readFileSync(env.DEPLOY_LOG, 'utf8'), /deploy --no-build --dir .*\/dist --functions .*\/netlify\/functions --site 21ae4ef9-7349-4349-8713-40619e1c0c07 --message gsam-source:preview:12:/)
 })
