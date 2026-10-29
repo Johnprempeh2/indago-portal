@@ -1,8 +1,9 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
-import { copyFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { copyFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { build } from 'esbuild'
 
 const sites = new Set(['greatstone-indago-portal', 'greatstone-indago-preview'])
 const mikeyId = '8950d7f0-4d3b-40b0-93d8-b67aead0a2f7'
@@ -73,8 +74,19 @@ async function main() {
   copyFileSync('netlify.toml', join(project, 'netlify.toml'))
   let result
   try {
+    await build({
+      entryPoints: readdirSync('netlify/functions').filter((file) => file.endsWith('.mjs'))
+        .map((file) => join('netlify/functions', file)),
+      outdir: join(project, 'functions'),
+      outExtension: { '.js': '.mjs' },
+      bundle: true,
+      platform: 'node',
+      format: 'esm',
+      target: 'node22',
+      logLevel: 'silent'
+    })
     result = spawnSync('netlify', ['deploy', '--no-build', '--dir', resolve('dist'),
-      '--functions', resolve('netlify/functions'), '--site', target.id, '--message', message],
+      '--functions', join(project, 'functions'), '--site', target.id, '--message', message],
     { stdio: 'inherit', cwd: project })
   } finally { rmSync(project, { recursive: true, force: true }) }
   if (result.status !== 0) throw new Error(`netlify deploy failed: ${result.error?.message || result.status}`)
