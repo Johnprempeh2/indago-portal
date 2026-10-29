@@ -44,6 +44,12 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
     return `${move.title}: ${answer.original}`;
   }).join('\n\n') : '';
   const hasUnsavedText = Boolean(text.trim() || Object.values(replies).some(reply => reply.trim()) || (ready && summary && summary !== (session.corrected_summary || suggestedSummary)));
+  useEffect(() => {
+    if (!hasUnsavedText) return;
+    const warnOnLeave = event => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warnOnLeave);
+    return () => window.removeEventListener('beforeunload', warnOnLeave);
+  }, [hasUnsavedText]);
   function exit() {
     if (hasUnsavedText && !window.confirm('Discard the text you have not saved? Your saved answers will remain available.')) return;
     onExit();
