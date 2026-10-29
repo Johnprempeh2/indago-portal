@@ -7,6 +7,9 @@ import IndagoApp from '../src/indago/IndagoApp.jsx';
 import { demoState } from '../src/indago/fixture/demo-state.mjs';
 import { demoNorthStar as template } from '../src/indago/fixture/demo-north-star.mjs';
 import { reduce, bindActions } from '../src/indago/model/local-store.mjs';
+import Interview, { makePreviewInterviewApi } from '../src/indago/Interview.jsx';
+
+const previewInterviewApi = makePreviewInterviewApi();
 
 function Demo() {
   const sample = 'id,note\nDEMO-1,Invented sample\n';
@@ -66,4 +69,6 @@ function Demo() {
   return <IndagoApp store={{ state, canEdit, facilitator, actions, files, fileActions, northStar, northStarActions }} status={<span className="badge">Demo data</span>} />;
 }
 
-createRoot(document.getElementById('root')).render(<Demo />);
+createRoot(document.getElementById('root')).render(location.pathname.includes('/interview')
+  ? <Interview api={previewInterviewApi} preview onExit={() => { location.href = '/demo/'; }} />
+  : <Demo />);

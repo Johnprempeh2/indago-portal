@@ -5,6 +5,14 @@ import { makeRecordStore, recordsToState } from './indago/data/record-store.mjs'
 import IndagoApp from './indago/IndagoApp.jsx';
 import { isFacilitator, visibleHistory } from './indago/model/audience.mjs';
 import GreatstoneFooter from './indago/GreatstoneFooter.jsx';
+import Interview from './indago/Interview.jsx';
+
+const interviewApi = (() => {
+  const api = makeIndagoApi();
+  return { list: api.listInterviews, get: api.getInterview, create: api.createInterview,
+    answer: api.saveInterviewAnswer, challenge: api.challengeInterviewAnswer,
+    reply: api.replyToInterviewChallenge, submit: api.submitInterview };
+})();
 
 export default function App() {
   const { data: session, isPending } = authClient.useSession();
@@ -18,9 +26,12 @@ export default function App() {
   }, []);
   if (openAccess === 'error') return <main className="portal-ui state" role="alert">Access could not be checked. Reload and try again.</main>;
   if (openAccess === null) return <main className="portal-ui state" aria-busy="true">Checking access…</main>;
+  const interviewRoute = typeof location !== 'undefined' && location.pathname.endsWith('/interview');
+  if (interviewRoute && openAccess) return <main className="portal-ui state" role="alert">The interview requires invited sign-in.</main>;
   if (openAccess) return <Workspace key="open-access" openAccess />;
   if (isPending) return <main className="portal-ui state" aria-busy="true">Checking access…</main>;
   if (!session) return <SignIn />;
+  if (interviewRoute) return <Interview api={interviewApi} onExit={() => { location.href = '/portal/indago'; }} />;
   return <Workspace key={session.user.id} />;
 }
 
