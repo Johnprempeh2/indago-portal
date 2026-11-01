@@ -1,0 +1,44 @@
+name: PR checks
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight
+      - name: Check interview database access
+        run: |
+          for migration in netlify/database/migrations/*/migration.sql; do
+            psql -v ON_ERROR_STOP=1 -f "$migration" > /dev/null
+          done
+          psql -v ON_ERROR_STOP=1 -f netlify/database/tests/client-interviews.sql

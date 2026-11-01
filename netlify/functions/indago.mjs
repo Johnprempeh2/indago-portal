@@ -48,7 +48,7 @@ export default async function handler(request) {
   const session = openAccess ? null : await auth.api.getSession({ headers: request.headers });
   return withMember(session, (client, role, facilitator) => route.startsWith('deliverables')
     ? handleDeliverables(request, client, role, route, getStore({ name: 'indago-deliverables', consistency: 'strong' }), openAccess)
-    : handlePortalRequest(request, client, role, route, openAccess, facilitator), openAccess);
+    : handlePortalRequest(request, client, role, route, openAccess, facilitator, session?.user?.id), openAccess);
 }
 
 export const config = { path: '/api/indago/*' };

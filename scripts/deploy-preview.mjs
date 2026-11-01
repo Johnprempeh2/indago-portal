@@ -1,4 +1,9 @@
 import { execFileSync, spawnSync } from 'node:child_process'
+import { resolve } from 'node:path'
+import { copyFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { build } from 'esbuild'
 
 const sites = new Set(['greatstone-indago-portal', 'greatstone-indago-preview'])
 const mikeyId = '8950d7f0-4d3b-40b0-93d8-b67aead0a2f7'
@@ -61,7 +66,29 @@ async function main() {
   }
   command('npm', ['run', 'build'])
   const message = `gsam-source:preview:${number}:${sha}`
-  const result = spawnSync('netlify', ['deploy', '--site', target.id, '--message', message], { stdio: 'inherit' })
+  // The build above is at the exact PR head. Rebuilding inside Netlify CLI also
+  // tries to write .netlify in the shared parent checkout outside this worktree.
+  // Netlify CLI resolves .netlify from the shared Git checkout even when the
+  // content is in this managed worktree. Give it a disposable project root.
+  const project = mkdtempSync(join(process.env.GSAM_RUN_SCRATCH_DIR || tmpdir(), 'indago-preview-'))
+  copyFileSync('netlify.toml', join(project, 'netlify.toml'))
+  let result
+  try {
+    await build({
+      entryPoints: readdirSync('netlify/functions').filter((file) => file.endsWith('.mjs'))
+        .map((file) => join('netlify/functions', file)),
+      outdir: join(project, 'functions'),
+      outExtension: { '.js': '.mjs' },
+      bundle: true,
+      platform: 'node',
+      format: 'esm',
+      target: 'node22',
+      logLevel: 'silent'
+    })
+    result = spawnSync('netlify', ['deploy', '--no-build', '--dir', resolve('dist'),
+      '--functions', join(project, 'functions'), '--site', target.id, '--message', message],
+    { stdio: 'inherit', cwd: project })
+  } finally { rmSync(project, { recursive: true, force: true }) }
   if (result.status !== 0) throw new Error(`netlify deploy failed: ${result.error?.message || result.status}`)
 }
 

@@ -8,6 +8,13 @@ export function makeIndagoApi(fetcher = fetch) {
     return result;
   };
   return {
+    async listInterviews() { return call('interviews'); },
+    async getInterview(id) { return call(`interviews/${id}`); },
+    async createInterview() { return call('interviews', { consent: true }); },
+    async saveInterviewAnswer(id, move, original) { return call(`interviews/${id}/answers`, { move, original }); },
+    async challengeInterviewAnswer(id, answerId) { return call(`interviews/${id}/challenges`, { answerId }); },
+    async replyToInterviewChallenge(id, challengeId, reply) { return call(`interviews/${id}/replies`, { challengeId, reply }); },
+    async submitInterview(id, correctedSummary) { return call(`interviews/${id}/submit`, { correctedSummary }); },
     async membership() { return call('membership'); },
     async snapshot() { return call('snapshot'); },
     async recentHistory() { return call('history'); },
