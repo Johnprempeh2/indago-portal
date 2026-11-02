@@ -13,13 +13,13 @@ const answers = MOVES.map((move, index) => ({ id: `answer-${index}`, move: move.
   ][index] }));
 
 test('AI draft retains sources, labels hypotheses, and cannot approve a North Star', () => {
-  const item = (text, sourceMoves) => ({ text, sourceMoves });
+  const item = (text, sources) => ({ text, sources });
   const raw = JSON.stringify({
     approvalStatus: 'Approved',
-    candidates: [item('A first direction', ['ambition', 'value']), item('A second direction', ['futures'])],
-    outcomes: [item('Outcome 1', ['value']), item('Outcome 2', ['economics']), item('Outcome 3', ['convergence'])],
-    boundaries: [item('Human judgement remains', ['boundaries'])],
-    evidenceRequests: [item('Test repeat demand', ['economics'])],
+    candidates: [item('A first direction', ['answer-0', 'answer-1']), item('A second direction', ['answer-2'])],
+    outcomes: [item('Outcome 1', ['answer-1']), item('Outcome 2', ['answer-3']), item('Outcome 3', ['answer-5'])],
+    boundaries: [item('Human judgement remains', ['answer-4'])],
+    hypotheses: [{ question: 'Test repeat demand', sources: ['answer-3'] }],
   });
   const draft = makeAiDraft(raw, answers, 'Participant corrected summary');
   assert.equal(draft.approvalStatus, 'Draft');
@@ -27,7 +27,7 @@ test('AI draft retains sources, labels hypotheses, and cannot approve a North St
   assert.equal(draft.outcomes[0].status, 'Greatstone hypothesis');
   assert.deepEqual(draft.boundaries[0].sources, [{ move: 'boundaries', answerId: 'answer-4', label: 'client statement' }]);
   assert.equal(draft.summary.status, 'client statement');
-  assert.throws(() => makeAiDraft(raw.replace('"economics"', '"invented"'), answers, 'Summary'));
+  assert.throws(() => makeAiDraft(raw.replace('"answer-3"', '"invented"'), answers, 'Summary'));
 });
 
 test('the opening is unprompted and already answered moves are skipped', () => {

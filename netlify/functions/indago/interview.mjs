@@ -1,5 +1,5 @@
 import { challengeFor, makeAiDraft, makeDraft, MOVES, proposedOutcomes } from '../../../src/indago/model/interview.mjs';
-import { askClaude, singleQuestion } from './claude.mjs';
+import { askClaude, escapeParticipant, interviewTranscript, parseAiJson, singleQuestion } from './claude.mjs';
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status,
   headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -67,19 +67,21 @@ export async function handleInterview(request, client, route, userId, facilitato
       try { proposedOutcomes(body.original); } catch (error) { return json({ error: error.message }, 400); }
     }
     if (session.answers.some(answer => answer.move === body.move)) return json({ error: 'Original answer is already recorded.' }, 409);
+    const answerId = crypto.randomUUID();
     await client.query(`INSERT INTO indago.client_interview_answers(id, session_id, move, original)
-      VALUES ($1,$2,$3,$4)`, [crypto.randomUUID(), id, body.move, body.original]);
+      VALUES ($1,$2,$3,$4)`, [answerId, id, body.move, body.original]);
     const remaining = MOVES.find(move => !session.answers.some(answer => answer.move === move.id) && move.id !== body.move);
     if (remaining) {
       let question = null;
       try {
-        const text = await ask({ system: process.env.INDAGO_AI_QUESTION_PROMPT, input: {
-          task: 'next_question', section: remaining.id, sectionQuestion: remaining.question,
-          answers: [...session.answers, { move: body.move, original: body.original }].map(({ move, original, challenges = [] }) => ({
-            move, original, challenges: challenges.map(({ question, reply }) => ({ question, reply })),
-          })),
-        } });
-        if (text) question = singleQuestion(text);
+        const answers = [...session.answers, { id: answerId, move: body.move, original: body.original, challenges: [] }];
+        const text = await ask({ system: process.env.INDAGO_AI_QUESTION_PROMPT, input: `Moves already covered: ${answers.map(answer => answer.move).join(', ')}\nQuestions already asked, in order:\n${session.answers.map(answer => MOVES.find(move => move.id === answer.move)?.question).filter(Boolean).join('\n')}\n\nTranscript:\n${interviewTranscript(answers)}\n\nAsk the next single question.` });
+        if (text) {
+          const result = parseAiJson(text);
+          if (result.move !== remaining.id || result.complete !== false || !Array.isArray(result.covered) ||
+            result.covered.some(move => !MOVES.some(item => item.id === move))) throw new Error('AI move invalid.');
+          question = singleQuestion(result.question, answers.map(answer => answer.original).join('\n'), remaining.id === 'boundaries');
+        }
       } catch { /* The saved answer remains available; the guided question is the fallback. */ }
       await client.query('UPDATE indago.client_interviews SET next_question = $1 WHERE id = $2', [question, id]);
     }
@@ -89,13 +91,12 @@ export async function handleInterview(request, client, route, userId, facilitato
     if (answer.challenges.some(item => !item.reply)) return json({ error: 'Reply to or skip the open challenge first.' }, 409);
     let question = challengeFor(answer.move, answer.original, session.answers.filter(item => item.id !== answer.id), answer.challenges.length);
     try {
-      const text = await ask({ system: process.env.INDAGO_AI_CHALLENGE_PROMPT, input: {
-        task: 'challenge', target: { move: answer.move, original: answer.original },
-        answers: session.answers.map(({ move, original, challenges }) => ({
-          move, original, challenges: challenges.map(({ question, reply }) => ({ question, reply })),
-        })),
-      } });
-      if (text) question = singleQuestion(text);
+      const text = await ask({ system: process.env.INDAGO_AI_CHALLENGE_PROMPT, input: `Challenged answer:\n<participant_answer id="${answer.id}" move="${answer.move}">${escapeParticipant(answer.original)}</participant_answer>\n\nEarlier challenges on this answer (do not repeat these angles): ${answer.challenges.map(item => item.question).join('; ') || 'none'}\n\nConversation so far:\n${interviewTranscript(session.answers)}\n\nAsk one pointed follow-up.` });
+      if (text) {
+        const result = parseAiJson(text);
+        if (result.answerId !== answer.id || !['client outcome', 'counterexample', 'economics', 'competitive difference', 'feasibility', 'trade-off', 'evidence'].includes(result.angle)) throw new Error('AI challenge invalid.');
+        question = singleQuestion(result.question, session.answers.map(item => item.original).join('\n'));
+      }
     } catch { /* Keep the guided challenge. */ }
     await client.query(`INSERT INTO indago.client_interview_challenges(id, answer_id, question)
       VALUES ($1,$2,$3)`, [crypto.randomUUID(), answer.id, question]);
@@ -110,12 +111,8 @@ export async function handleInterview(request, client, route, userId, facilitato
     let draft;
     try { draft = makeDraft(session.answers, body.correctedSummary); } catch (error) { return json({ error: error.message }, 400); }
     try {
-      const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 2200, input: {
-        task: 'draft', correctedSummary: body.correctedSummary,
-        answers: session.answers.map(({ move, original, challenges }) => ({
-          move, original, challenges: challenges.map(({ question, reply }) => ({ question, reply })),
-        })),
-      } });
+      const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 3000, temperature: 0.5,
+        input: `<corrected_summary>${escapeParticipant(body.correctedSummary)}</corrected_summary>\n\nTranscript:\n${interviewTranscript(session.answers)}\n\nDraft the record.` });
       if (text) draft = makeAiDraft(text, session.answers, body.correctedSummary);
     } catch { /* The guided draft remains available for facilitator review. */ }
     await client.query(`UPDATE indago.client_interviews SET corrected_summary = $1, draft = $2, status = 'submitted', updated_at = now()

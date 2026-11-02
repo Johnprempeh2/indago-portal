@@ -1,7 +1,7 @@
 // Server only. The caller supplies approved instructions; participant text is data.
 const ENDPOINT = 'https://api.anthropic.com/v1/messages';
 
-export async function askClaude({ system, input, maxTokens = 700 }, {
+export async function askClaude({ system, input, maxTokens = 400, temperature = 0.3 }, {
   key = process.env.ANTHROPIC_API_KEY,
   enabled = process.env.INDAGO_AI_INTERVIEW === 'true' &&
     Boolean(process.env.INDAGO_AI_QUESTION_PROMPT && process.env.INDAGO_AI_CHALLENGE_PROMPT && process.env.INDAGO_AI_DRAFT_PROMPT),
@@ -16,8 +16,8 @@ export async function askClaude({ system, input, maxTokens = 700 }, {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-5', max_tokens: maxTokens, system,
-      messages: [{ role: 'user', content: JSON.stringify(input) }],
+      model: 'claude-sonnet-5', max_tokens: maxTokens, temperature, system,
+      messages: [{ role: 'user', content: typeof input === 'string' ? input : JSON.stringify(input) }],
     }),
     signal: AbortSignal.timeout(15000),
   });
@@ -29,11 +29,34 @@ export async function askClaude({ system, input, maxTokens = 700 }, {
   return content;
 }
 
-export function singleQuestion(text) {
-  const question = text?.trim();
-  if (!question || question.length > 500 || !question.endsWith('?') || question.split('?').length !== 2 ||
-    /[\r\n]/.test(question) || /\bportal\b|\bAI (?:product|platform)\b/i.test(question)) {
+export function parseAiJson(text) {
+  const value = JSON.parse(text);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('AI response invalid.');
+  return value;
+}
+
+export function singleQuestion(question, participantText = '', allowBoundaryAi = false) {
+  const value = question?.trim();
+  if (!value || value.length > 300 || !value.endsWith('?') || value.split('?').length !== 2 || /[\r\n]/.test(value)) {
     throw new Error('AI question invalid.');
   }
-  return question;
+  const banned = /\b(?:portal|platform|artificial intelligence|app|dashboard|software|automation tools?)s?\b|\bAI\b/gi;
+  for (const match of value.matchAll(banned)) {
+    const term = match[0];
+    if (term.toUpperCase() === 'AI' && term !== 'AI') continue;
+    if (allowBoundaryAi && term === 'AI' && /^Which uses of AI should be rejected\?$/i.test(value)) continue;
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (!new RegExp(`\\b${escaped}\\b`, 'i').test(participantText)) throw new Error('AI question leads the participant.');
+  }
+  return value;
+}
+
+export const escapeParticipant = value => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+
+export function interviewTranscript(answers) {
+  return answers.flatMap(answer => [
+    `<participant_answer id="${answer.id}" move="${answer.move}">${escapeParticipant(answer.original)}</participant_answer>`,
+    ...(answer.challenges || []).filter(challenge => challenge.reply).map((challenge, index) =>
+      `<participant_answer id="${answer.id}" move="${answer.move}" challenge="${index + 1}">${escapeParticipant(challenge.reply)}</participant_answer>`),
+  ]).join('\n');
 }

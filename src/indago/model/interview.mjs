@@ -61,29 +61,39 @@ export function makeDraft(answers, correctedSummary) {
 
 export function makeAiDraft(raw, answers, correctedSummary) {
   const item = JSON.parse(raw);
-  const byMove = new Map(answers.map(answer => [answer.move, answer]));
-  const sourceMoves = moves => {
-    if (!Array.isArray(moves) || !moves.length || moves.some(move => !byMove.has(move))) throw new Error('AI sources invalid.');
-    return [...new Set(moves)].map(move => source(byMove.get(move)));
+  const byId = new Map(answers.map(answer => [answer.id, answer]));
+  const sourcesFor = ids => {
+    if (!Array.isArray(ids) || !ids.length || ids.some(id => !byId.has(id))) throw new Error('AI sources invalid.');
+    return [...new Set(ids)].map(id => source(byId.get(id)));
   };
-  const entries = (items, min, max) => {
+  const entries = (items, min, max, field = 'text') => {
     if (!Array.isArray(items) || items.length < min || items.length > max) throw new Error('AI draft incomplete.');
     return items.map(value => {
-      if (typeof value?.text !== 'string' || !value.text.trim() || value.text.length > 1000) throw new Error('AI draft invalid.');
-      return { text: value.text.trim(), sources: sourceMoves(value.sourceMoves) };
+      const text = value?.[field];
+      if (typeof text !== 'string' || !text.trim() || text.length > 1000 || /\b(?:approved|confirmed|final)\b/i.test(text)) throw new Error('AI draft invalid.');
+      return { text: text.trim(), sources: sourcesFor(value.sources) };
     });
   };
   const candidates = entries(item.candidates, 2, 3).map((value, i) => ({
-    ...value, framing: `Candidate ${i + 1}`, status: 'Draft: pending Gordon’s confirmation', provenance: 'Greatstone hypothesis',
+    ...value, framing: String(item.candidates[i].framing || `Candidate ${i + 1}`).slice(0, 80),
+    rationale: String(item.candidates[i].rationale || '').slice(0, 300),
+    status: 'Draft: pending Gordon’s confirmation', provenance: 'Greatstone hypothesis',
   }));
-  const outcomes = entries(item.outcomes, 3, 5).map(value => ({ ...value, status: 'Greatstone hypothesis' }));
-  const boundaries = entries(item.boundaries, 1, 8).map(value => ({ ...value, status: 'Greatstone hypothesis' }));
-  const evidenceRequests = entries(item.evidenceRequests, 1, 10).map((value, i) => ({
+  const outcomes = entries(item.outcomes, 3, 5).map((value, i) => ({ ...value,
+    target: String(item.outcomes[i].target || 'not stated').slice(0, 200),
+    horizon: String(item.outcomes[i].horizon || 'not stated').slice(0, 200),
+    owner: String(item.outcomes[i].owner || 'not stated').slice(0, 200),
+    status: item.outcomes[i].provenance === 'client statement' ? 'client statement' : 'Greatstone hypothesis' }));
+  const boundaries = entries(item.boundaries, 0, 8).map((value, i) => ({ ...value,
+    status: item.boundaries[i].provenance === 'client statement' ? 'client statement' : 'Greatstone hypothesis' }));
+  const evidenceRequests = entries(item.hypotheses, 1, 10, 'question').map((value, i) => ({
     id: `NS-H-${String(i + 1).padStart(2, '0')}`, question: value.text, status: 'Greatstone hypothesis', sources: value.sources,
   }));
   return {
-    recordId: 'IND-NS-001', gate: 'G2', approvalStatus: 'Draft', processing: 'AI-assisted draft',
+    recordId: 'IND-NS-001', gate: 'G2', approvalStatus: 'Draft', processing: 'AI-assisted draft, human review required',
     summary: { text: correctedSummary.trim(), status: 'client statement', sources: answers.map(source) },
     candidates, outcomes, boundaries, evidenceRequests,
+    unresolved: entries(item.unresolved || [], 0, 10).map((value, i) => ({ ...value,
+      status: item.unresolved[i].provenance === 'client statement' ? 'client statement' : 'Greatstone hypothesis' })),
   };
 }

@@ -67,12 +67,12 @@ test('next AI question uses answer context, and a failed call keeps the guided p
   const client = memoryClient();
   let session = await (await handleInterview(post({ consent: true }), client, 'interviews', 'client-one')).json();
   const seen = [];
-  const ask = async request => { seen.push(request); return 'Which client decision would change first?'; };
+  const ask = async request => { seen.push(request); return JSON.stringify({ move: 'value', question: 'Which client decision would change first?', covered: ['ambition'], complete: false }); };
   session = await (await handleInterview(post({ move: 'ambition', original: 'Client decisions improve' }), client,
     `interviews/${session.id}/answers`, 'client-one', false, false, ask)).json();
   assert.equal(session.next_question, 'Which client decision would change first?');
-  assert.equal(seen[0].input.section, 'value');
-  assert.equal(seen[0].input.answers[0].original, 'Client decisions improve');
+  assert.match(seen[0].input, /Client decisions improve/);
+  assert.match(seen[0].input, /participant_answer/);
   session = await (await handleInterview(post({ move: 'value', original: 'Better decisions' }), client,
     `interviews/${session.id}/answers`, 'client-one', false, false, async () => { throw new Error('provider down'); })).json();
   assert.equal(session.next_question, null);
@@ -86,7 +86,7 @@ test('AI challenge keeps the original answer and stores the follow-up separately
     `interviews/${session.id}/answers`, 'client-one')).json();
   const answerId = session.answers[0].id;
   session = await (await handleInterview(post({ answerId }), client, `interviews/${session.id}/challenges`,
-    'client-one', false, false, async () => 'What would disprove that view?')).json();
+    'client-one', false, false, async () => JSON.stringify({ answerId, angle: 'counterexample', question: 'What would disprove that view?' }))).json();
   assert.equal(session.answers[0].original, 'Original view');
   assert.equal(session.answers[0].challenges[0].question, 'What would disprove that view?');
 });
@@ -99,15 +99,15 @@ test('AI draft output is recorded as a sourced proposal even when model claims a
     session = await (await handleInterview(post({ move: move.id, original }), client,
       `interviews/${session.id}/answers`, 'client-one')).json();
   }
-  const item = (text, sourceMoves) => ({ text, sourceMoves });
+  const item = (text, sources) => ({ text, sources });
   const modelOutput = JSON.stringify({ approvalStatus: 'Approved',
-    candidates: [item('Candidate one', ['ambition']), item('Candidate two', ['value'])],
-    outcomes: [item('Outcome one', ['convergence']), item('Outcome two', ['convergence']), item('Outcome three', ['convergence'])],
-    boundaries: [item('Experts decide', ['boundaries'])], evidenceRequests: [item('Test demand', ['economics'])],
+    candidates: [item('Candidate one', [session.answers[0].id]), item('Candidate two', [session.answers[1].id])],
+    outcomes: [item('Outcome one', [session.answers[5].id]), item('Outcome two', [session.answers[5].id]), item('Outcome three', [session.answers[5].id])],
+    boundaries: [item('Experts decide', [session.answers[4].id])], hypotheses: [{ question: 'Test demand', sources: [session.answers[3].id] }],
   });
   session = await (await handleInterview(post({ correctedSummary: 'My corrected summary' }), client,
     `interviews/${session.id}/submit`, 'client-one', false, false, async () => modelOutput)).json();
-  assert.equal(session.draft.processing, 'AI-assisted draft');
+  assert.equal(session.draft.processing, 'AI-assisted draft, human review required');
   assert.equal(session.draft.approvalStatus, 'Draft');
   assert.equal(session.draft.candidates[0].sources[0].answerId, session.answers[0].id);
   assert.equal(session.status, 'submitted');
