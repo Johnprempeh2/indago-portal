@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { handleMemberSeed } from './indago-member-seed.mjs';
+import { handleMemberSeed } from '../netlify/functions/indago-member-seed.mjs';
 
 const token = 'a'.repeat(48);
 const raw = JSON.stringify([
