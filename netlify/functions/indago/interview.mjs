@@ -1,4 +1,5 @@
-import { challengeFor, makeDraft, MOVES, proposedOutcomes } from '../../../src/indago/model/interview.mjs';
+import { challengeFor, makeAiDraft, makeDraft, MOVES, proposedOutcomes } from '../../../src/indago/model/interview.mjs';
+import { askClaude, singleQuestion } from './claude.mjs';
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status,
   headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -21,7 +22,7 @@ async function load(client, id, userId) {
     challenges: challenges.filter(item => item.answer_id === answer.id) })) };
 }
 
-export async function handleInterview(request, client, route, userId, facilitator = false, openAccess = false) {
+export async function handleInterview(request, client, route, userId, facilitator = false, openAccess = false, ask = askClaude) {
   if (openAccess) return json({ error: 'Invited sign-in is required.' }, 403);
   const parts = route.split('/');
   if (request.method === 'GET' && route === 'interviews') {
@@ -68,11 +69,34 @@ export async function handleInterview(request, client, route, userId, facilitato
     if (session.answers.some(answer => answer.move === body.move)) return json({ error: 'Original answer is already recorded.' }, 409);
     await client.query(`INSERT INTO indago.client_interview_answers(id, session_id, move, original)
       VALUES ($1,$2,$3,$4)`, [crypto.randomUUID(), id, body.move, body.original]);
+    const remaining = MOVES.find(move => !session.answers.some(answer => answer.move === move.id) && move.id !== body.move);
+    if (remaining) {
+      let question = null;
+      try {
+        const text = await ask({ system: process.env.INDAGO_AI_QUESTION_PROMPT, input: {
+          task: 'next_question', section: remaining.id, sectionQuestion: remaining.question,
+          answers: [...session.answers, { move: body.move, original: body.original }].map(({ move, original, challenges = [] }) => ({
+            move, original, challenges: challenges.map(({ question, reply }) => ({ question, reply })),
+          })),
+        } });
+        if (text) question = singleQuestion(text);
+      } catch { /* The saved answer remains available; the guided question is the fallback. */ }
+      await client.query('UPDATE indago.client_interviews SET next_question = $1 WHERE id = $2', [question, id]);
+    }
   } else if (parts[2] === 'challenges') {
     const answer = session.answers.find(item => item.id === body.answerId);
     if (!answer) return json({ error: 'Answer not found.' }, 404);
     if (answer.challenges.some(item => !item.reply)) return json({ error: 'Reply to or skip the open challenge first.' }, 409);
-    const question = challengeFor(answer.move, answer.original, session.answers.filter(item => item.id !== answer.id), answer.challenges.length);
+    let question = challengeFor(answer.move, answer.original, session.answers.filter(item => item.id !== answer.id), answer.challenges.length);
+    try {
+      const text = await ask({ system: process.env.INDAGO_AI_CHALLENGE_PROMPT, input: {
+        task: 'challenge', target: { move: answer.move, original: answer.original },
+        answers: session.answers.map(({ move, original, challenges }) => ({
+          move, original, challenges: challenges.map(({ question, reply }) => ({ question, reply })),
+        })),
+      } });
+      if (text) question = singleQuestion(text);
+    } catch { /* Keep the guided challenge. */ }
     await client.query(`INSERT INTO indago.client_interview_challenges(id, answer_id, question)
       VALUES ($1,$2,$3)`, [crypto.randomUUID(), answer.id, question]);
   } else if (parts[2] === 'replies') {
@@ -85,6 +109,15 @@ export async function handleInterview(request, client, route, userId, facilitato
     if (typeof body.correctedSummary !== 'string' || !body.correctedSummary.trim() || body.correctedSummary.length > 20000) return json({ error: 'Review your summary first.' }, 400);
     let draft;
     try { draft = makeDraft(session.answers, body.correctedSummary); } catch (error) { return json({ error: error.message }, 400); }
+    try {
+      const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 2200, input: {
+        task: 'draft', correctedSummary: body.correctedSummary,
+        answers: session.answers.map(({ move, original, challenges }) => ({
+          move, original, challenges: challenges.map(({ question, reply }) => ({ question, reply })),
+        })),
+      } });
+      if (text) draft = makeAiDraft(text, session.answers, body.correctedSummary);
+    } catch { /* The guided draft remains available for facilitator review. */ }
     await client.query(`UPDATE indago.client_interviews SET corrected_summary = $1, draft = $2, status = 'submitted', updated_at = now()
       WHERE id = $3`, [body.correctedSummary, JSON.stringify(draft), id]);
   }

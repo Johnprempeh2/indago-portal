@@ -1,4 +1,4 @@
-// The guided route is deliberately local. No participant text leaves Indago for AI processing.
+// The guided route remains available when server-side AI is disabled or unavailable.
 export const MOVES = [
   { id: 'ambition', title: 'Your starting point', question: 'In your own words, what should Indago become, and what would its clients gain?' },
   { id: 'value', title: 'Client value', question: 'If Indago stopped running surveys tomorrow, what valuable outcome would clients still pay it to deliver?' },
@@ -56,5 +56,34 @@ export function makeDraft(answers, correctedSummary) {
       { id: 'NS-H-02', question: 'What repeat demand, economics and rights support the preferred future?', status: 'Greatstone hypothesis', sources: [source(by.economics), source(by.futures)] },
       { id: 'NS-H-03', question: 'Which operating and ethical limits are confirmed by policy or contract?', status: 'Greatstone hypothesis', sources: [source(by.boundaries)] },
     ],
+  };
+}
+
+export function makeAiDraft(raw, answers, correctedSummary) {
+  const item = JSON.parse(raw);
+  const byMove = new Map(answers.map(answer => [answer.move, answer]));
+  const sourceMoves = moves => {
+    if (!Array.isArray(moves) || !moves.length || moves.some(move => !byMove.has(move))) throw new Error('AI sources invalid.');
+    return [...new Set(moves)].map(move => source(byMove.get(move)));
+  };
+  const entries = (items, min, max) => {
+    if (!Array.isArray(items) || items.length < min || items.length > max) throw new Error('AI draft incomplete.');
+    return items.map(value => {
+      if (typeof value?.text !== 'string' || !value.text.trim() || value.text.length > 1000) throw new Error('AI draft invalid.');
+      return { text: value.text.trim(), sources: sourceMoves(value.sourceMoves) };
+    });
+  };
+  const candidates = entries(item.candidates, 2, 3).map((value, i) => ({
+    ...value, framing: `Candidate ${i + 1}`, status: 'Draft: pending Gordon’s confirmation', provenance: 'Greatstone hypothesis',
+  }));
+  const outcomes = entries(item.outcomes, 3, 5).map(value => ({ ...value, status: 'Greatstone hypothesis' }));
+  const boundaries = entries(item.boundaries, 1, 8).map(value => ({ ...value, status: 'Greatstone hypothesis' }));
+  const evidenceRequests = entries(item.evidenceRequests, 1, 10).map((value, i) => ({
+    id: `NS-H-${String(i + 1).padStart(2, '0')}`, question: value.text, status: 'Greatstone hypothesis', sources: value.sources,
+  }));
+  return {
+    recordId: 'IND-NS-001', gate: 'G2', approvalStatus: 'Draft', processing: 'AI-assisted draft',
+    summary: { text: correctedSummary.trim(), status: 'client statement', sources: answers.map(source) },
+    candidates, outcomes, boundaries, evidenceRequests,
   };
 }

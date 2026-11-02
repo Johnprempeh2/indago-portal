@@ -78,7 +78,7 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
       {session && <>
         <p className="progress" aria-live="polite">{session.status === 'submitted' ? 'Draft recorded' : `Move ${next ? MOVES.indexOf(next) + 1 : 6} of 6`} · IND-NS-001 · G2</p>
         {next && session.canWrite && <form className="current" onSubmit={async e => { e.preventDefault(); const ok = await run(() => api.answer(session.id, next.id, text)); if (ok) setText(''); }}>
-          <p className="source-label">{next.title}</p><h2 tabIndex="-1" ref={questionHeading}>{next.question}</h2>
+          <p className="source-label">{next.title}</p><h2 tabIndex="-1" ref={questionHeading}>{session.next_question || next.question}</h2>
           <label htmlFor="answer">Your response</label><textarea id="answer" value={text} required maxLength={20000} rows="7" onChange={e => setText(e.target.value)} />
           <div className="actions"><button disabled={busy || !text.trim()}>Save and continue</button><button type="button" className="quiet" onClick={exit}>Pause and return later</button></div>
         </form>}
@@ -92,6 +92,7 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
           <p className="source-label">Your corrected summary</p><p className="prewrap">{session.corrected_summary}</p>
           <h3>Draft North Star candidates</h3><ol>{session.draft?.candidates?.map((candidate, index) => <li key={index}><strong>{candidate.framing}</strong><p>{candidate.text}</p><small>{candidate.status} · {candidate.provenance} · Sources: <SourceLinks sources={candidate.sources} /></small></li>)}</ol>
           <h3>Proposed outcomes</h3><ul>{session.draft?.outcomes?.map((outcome, i) => <li key={i}>{outcome.text} <small>({outcome.status}; <SourceLinks sources={outcome.sources} />)</small></li>)}</ul>
+          <h3>Boundaries</h3><ul>{session.draft?.boundaries?.map((boundary, i) => <li key={i}>{boundary.text} <small>({boundary.status}; <SourceLinks sources={boundary.sources} />)</small></li>)}</ul>
           <h3>Evidence requests</h3><ul>{session.draft?.evidenceRequests?.map(request => <li key={request.id}>{request.id}: {request.question} <small>({request.status}; <SourceLinks sources={request.sources} />)</small></li>)}</ul>
         </section>}
         <details className="interview-details" open={session.status === 'submitted' ? true : undefined}><summary>Previous answers and challenges ({session.answers.length})</summary>

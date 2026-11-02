@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MOVES, challengeFor, makeDraft, nextMove, proposedOutcomes } from './interview.mjs';
+import { MOVES, challengeFor, makeAiDraft, makeDraft, nextMove, proposedOutcomes } from './interview.mjs';
 
 const answers = MOVES.map((move, index) => ({ id: `answer-${index}`, move: move.id,
   original: [
@@ -11,6 +11,24 @@ const answers = MOVES.map((move, index) => ({ id: `answer-${index}`, move: move.
     'Experts make final research judgements. Do not reuse data without rights.',
     'Indago should improve decisions by 2031.\nThree clients report faster decisions.\nRenewal rate improves.\nQuality remains trusted.',
   ][index] }));
+
+test('AI draft retains sources, labels hypotheses, and cannot approve a North Star', () => {
+  const item = (text, sourceMoves) => ({ text, sourceMoves });
+  const raw = JSON.stringify({
+    approvalStatus: 'Approved',
+    candidates: [item('A first direction', ['ambition', 'value']), item('A second direction', ['futures'])],
+    outcomes: [item('Outcome 1', ['value']), item('Outcome 2', ['economics']), item('Outcome 3', ['convergence'])],
+    boundaries: [item('Human judgement remains', ['boundaries'])],
+    evidenceRequests: [item('Test repeat demand', ['economics'])],
+  });
+  const draft = makeAiDraft(raw, answers, 'Participant corrected summary');
+  assert.equal(draft.approvalStatus, 'Draft');
+  assert.equal(draft.candidates[0].status, 'Draft: pending Gordon’s confirmation');
+  assert.equal(draft.outcomes[0].status, 'Greatstone hypothesis');
+  assert.deepEqual(draft.boundaries[0].sources, [{ move: 'boundaries', answerId: 'answer-4', label: 'client statement' }]);
+  assert.equal(draft.summary.status, 'client statement');
+  assert.throws(() => makeAiDraft(raw.replace('"economics"', '"invented"'), answers, 'Summary'));
+});
 
 test('the opening is unprompted and already answered moves are skipped', () => {
   assert.equal(nextMove([]).id, 'ambition');
