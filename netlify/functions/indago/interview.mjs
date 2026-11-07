@@ -1,4 +1,4 @@
-import { acceptAiTurn, challengeFor, guidedTurn, makeAiDraft, makeDraft, MAX_QUESTIONS_PER_MOVE, moveAnswers, MOVES, needsSourceCheck, proposedOutcomes, sourceCheckTurn } from '../../../src/indago/model/interview.mjs';
+import { acceptAiTurn, challengeFor, guidedTurn, makeAiDraft, makeDraft, MAX_QUESTIONS_PER_MOVE, moveAnswers, MOVES, needsSourceCheck, pendingSkips, proposedOutcomes, reopenTurn, sourceCheckTurn } from '../../../src/indago/model/interview.mjs';
 import { aiConfigured, aiFallbackReason, aiJsonText, askClaude, escapeParticipant, interviewTranscript, logAiFallback, parseAiJson, singleQuestion } from './claude.mjs';
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status,
@@ -21,7 +21,9 @@ async function load(client, id, userId) {
   const withChallenges = answers.map(answer => ({ ...answer, challenges: challenges.filter(item => item.answer_id === answer.id) }));
   // The question waiting for an answer: the AI's stored turn, or else the guided turn.
   const turn = session.status !== 'in_progress' ? null : session.next_turn?.move ? session.next_turn : guidedTurn(withChallenges, session.next_turn?.covered);
-  return { ...session, turn, canWrite: session.owner_id === userId && session.status === 'in_progress', answers: withChallenges };
+  // Moves the AI would skip with this turn. The participant sees them first and can answer any of them.
+  const skipped = session.status === 'in_progress' ? pendingSkips(withChallenges, session.next_turn?.covered) : [];
+  return { ...session, turn, skipped, canWrite: session.owner_id === userId && session.status === 'in_progress', answers: withChallenges };
 }
 
 const askedQuestions = answers => answers.flatMap(answer => [answer.question, ...answer.challenges.map(item => item.question)]).filter(Boolean)
@@ -42,7 +44,8 @@ async function nextAiTurn(ask, answers) {
   const raw = parseAiJson(text);
   const result = acceptAiTurn(raw, answers, current);
   // NS-01 move 1: the earlier source statements come after the participant's own ambition, before any other move.
-  if (needsSourceCheck(answers) && (result.complete || result.move !== 'ambition')) return { ...sourceCheckTurn('AI'), covered: result.covered };
+  // The AI's covered moves are not carried onto this turn; it is asked again after the check and can say so then.
+  if (needsSourceCheck(answers) && (result.complete || result.move !== 'ambition')) return sourceCheckTurn('AI');
   if (result.complete) return { covered: result.covered, reason: result.reason };
   const question = singleQuestion(raw.question, answers.map(answer => answer.original).join('\n'), result.move === 'boundaries');
   return { move: result.move, question, askedBy: 'AI', reason: result.reason, covered: result.covered };
@@ -79,7 +82,7 @@ export async function handleInterview(request, client, route, userId, facilitato
         `${MOVES.find(move => move.id === answer.move)?.title || answer.move} [${answer.id}]`,
         `Question (${answer.asked_by === 'AI' ? 'AI' : 'guided'}${answer.source_check ? ', earlier source statements to confirm or correct' : ''}): ${answer.question || '(not recorded)'}`,
         ...(answer.asked_by === 'AI' ? [`AI reason: ${answer.ai_reason || '(none given)'}`] : []),
-        ...(answer.ai_covered?.length ? [`Moves the AI saw as covered before this question: ${answer.ai_covered.join(', ')}`] : []),
+        ...(answer.ai_covered?.length ? [`Moves the AI saw as covered, shown to the participant before this answer: ${answer.ai_covered.join(', ')}`] : []),
         `Client statement: ${answer.original}`,
         ...answer.challenges.flatMap(challenge => [`Challenge: ${challenge.question}`, `Separate reply: ${challenge.reply || '(skipped)'}`]), '',
       ]), `Corrected summary: ${session.corrected_summary || '(not submitted)'}`, '',
@@ -87,7 +90,7 @@ export async function handleInterview(request, client, route, userId, facilitato
     return new Response(text, { headers: { 'Content-Type': 'text/plain; charset=utf-8',
       'Content-Disposition': `attachment; filename="north-star-${id}.txt"`, 'Cache-Control': 'no-store' } });
   }
-  if (request.method !== 'POST' || parts.length !== 3 || !['answers', 'challenges', 'replies', 'submit'].includes(parts[2])) return json({ error: 'Not found.' }, 404);
+  if (request.method !== 'POST' || parts.length !== 3 || !['answers', 'challenges', 'replies', 'reopen', 'submit'].includes(parts[2])) return json({ error: 'Not found.' }, 404);
   if (session.owner_id !== userId || session.status !== 'in_progress') return json({ error: 'This session is read only.' }, 403);
   let body;
   try { body = await payload(request); } catch { return json({ error: 'Invalid request.' }, 400); }
@@ -126,6 +129,10 @@ export async function handleInterview(request, client, route, userId, facilitato
     } catch (error) { logAiFallback('challenge', error); /* Keep the guided challenge. */ }
     await client.query(`INSERT INTO indago.client_interview_challenges(id, answer_id, question)
       VALUES ($1,$2,$3)`, [crypto.randomUUID(), answer.id, question]);
+  } else if (parts[2] === 'reopen') {
+    const turn = reopenTurn(session.answers, session.next_turn?.covered || [], body.move);
+    if (!turn) return json({ error: 'This part is no longer waiting to be skipped. Reload the page.' }, 409);
+    await client.query('UPDATE indago.client_interviews SET next_turn = $1 WHERE id = $2', [JSON.stringify(turn), id]);
   } else if (parts[2] === 'replies') {
     if (typeof body.reply !== 'string' || body.reply.length > 20000) return json({ error: 'Invalid reply.' }, 400);
     const result = await client.query(`UPDATE indago.client_interview_challenges SET reply = $1 WHERE id = $2 AND reply = ''

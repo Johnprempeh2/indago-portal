@@ -91,8 +91,8 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
       </>}
       {error && <p role="alert" className="interview-error">{error}</p>}
       {!session && listing === null && !error && <p aria-busy="true">Loading sessions…</p>}
-      {!session && listing && <section aria-label="Your sessions">
-        {listing.sessions.length > 0 && <><h2>{listing.facilitator ? 'Sessions for facilitator review' : 'Continue your session'}</h2><ul className="sessions">{listing.sessions.map(item => <li key={item.id}><button type="button" onClick={() => open(item.id)}>{item.status === 'submitted' ? 'Review submitted draft' : 'Resume interview'} · {item.id.slice(0, 8)}</button>{listing.facilitator && <a href={`/api/indago/interviews/${item.id}/export`}>Export record</a>}</li>)}</ul></>}
+      {!session && listing && <section aria-label="Your sessions" className={listing.facilitator ? 'session-start facilitator' : 'session-start'}>
+        {listing.sessions.length > 0 && <div className="session-list"><h2>{listing.facilitator ? 'Sessions for facilitator review' : 'Continue your session'}</h2><ul className="sessions">{listing.sessions.map(item => <li key={item.id}><button type="button" onClick={() => open(item.id)}>{item.status === 'submitted' ? 'Review submitted draft' : 'Resume interview'} · {item.id.slice(0, 8)}</button>{listing.facilitator && <a href={`/api/indago/interviews/${item.id}/export`}>Export record</a>}</li>)}</ul></div>}
         <label className="consent"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /> {preview ? 'I understand this synthetic preview keeps invented answers in this browser tab, does not save them to the private portal, and does not use AI to process them.' : 'I agree to take part and to have my answers, follow-up replies, corrections and draft saved for review by Greatstone facilitators with access.'}</label>
         {!preview && listing.aiAvailable ? <div className="actions ai-choice">
           <button type="button" disabled={busy || !consent} onClick={() => start(true)}>Start with AI help</button>
@@ -102,6 +102,7 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
       {session && <>
         <p className="progress" aria-live="polite">{session.status === 'submitted' ? 'Draft recorded' : `Part ${nextInfo ? MOVES.indexOf(nextInfo) + 1 : 6} of 6`}{facilitator && ` · ${session.record_id || 'IND-NS-001'} · ${session.gate || 'G2'}`}</p>
         {!preview && <details className="interview-details processing-line"><summary>{session.ai_assisted ? AI_LINE : GUIDED_LINE} <span className="link">How your answers are handled</span></summary><NoticeList ai={Boolean(session.ai_assisted)} /></details>}
+        {session.canWrite && <SkipNotice skipped={session.skipped} busy={busy} onAnswer={move => run(() => api.reopen(session.id, move))} />}
         {next && session.canWrite && <form className="current" onSubmit={async e => { e.preventDefault(); const ok = await run(() => api.answer(session.id, next.move, text)); if (ok) setText(''); }}>
           <p className="source-label">{nextInfo.title}</p><h2 tabIndex="-1" ref={questionHeading}>{next.question}</h2>
           {next.sourceCheck && <><p className="source-label">Earlier statements to check. They are not facts.</p><ul className="source-statements">{SOURCE_STATEMENTS.map(item => <li key={item}>{item}</li>)}</ul></>}
@@ -168,6 +169,18 @@ export function NoticeList({ ai }) {
     <li>If you prefer not to use AI, choose <strong>Continue without AI</strong>. You get the same topics, as guided questions in a fixed order, and your answers are not sent to an AI service.</li>
     <li>Questions or a request to delete your answers: <strong>[contact – John to set]</strong>.</li>
   </ul>;
+}
+
+// Touchstone S3: a part the AI thinks is already covered is skipped only after the participant has seen this and
+// chosen not to answer it.
+export function SkipNotice({ skipped = [], busy = false, onAnswer }) {
+  if (!skipped.length) return null;
+  const titles = skipped.map(id => MOVES.find(move => move.id === id)?.title || id);
+  const named = titles.map((title, i) => <React.Fragment key={title}>{i > 0 && (i === titles.length - 1 ? ' and ' : ', ')}<strong>{title}</strong></React.Fragment>);
+  return <section className="skip-notice" aria-label="Parts you may skip">
+    <p>Your answers so far may already cover {named}, so the interviewer plans to skip {titles.length === 1 ? 'that part' : 'those parts'}. If you want to answer {titles.length === 1 ? 'it' : 'one'} yourself, choose it below. Otherwise continue with the next question.</p>
+    <div className="actions">{skipped.map((id, i) => <button type="button" className="quiet" key={id} disabled={busy} onClick={() => onAnswer(id)}>Answer “{titles[i]}”</button>)}</div>
+  </section>;
 }
 
 function SourceLinks({ sources = [] }) {

@@ -13,6 +13,7 @@ export function makeIndagoApi(fetcher = fetch) {
     async createInterview(ai = false) { return call('interviews', { consent: true, ai: ai === true }); },
     async saveInterviewAnswer(id, move, original) { return call(`interviews/${id}/answers`, { move, original }); },
     async challengeInterviewAnswer(id, answerId) { return call(`interviews/${id}/challenges`, { answerId }); },
+    async reopenInterviewMove(id, move) { return call(`interviews/${id}/reopen`, { move }); },
     async replyToInterviewChallenge(id, challengeId, reply) { return call(`interviews/${id}/replies`, { challengeId, reply }); },
     async submitInterview(id, correctedSummary) { return call(`interviews/${id}/submit`, { correctedSummary }); },
     // Starts the AI draft in a Netlify background function. It answers 202 at once; poll the session for the result.

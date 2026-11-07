@@ -166,6 +166,63 @@ test('an answer that covers value and economics skips economics', async () => {
   assert.ok(economicsSource.includes(byMove(session, 'value').id), 'the covered move cites the answer that covered it');
 });
 
+const reopen = async (client, session, move) => handleInterview(post({ move }), client, `interviews/${session.id}/reopen`, 'client-one', false, false);
+
+test('the participant sees a part before the AI skips it and can choose to answer it (Touchstone S3)', async () => {
+  const client = memoryClient();
+  let session = await atValue(client);
+  assert.deepEqual(session.skipped, []);
+  // One broad answer: the AI says value, economics and boundaries are all covered.
+  session = await answer(client, session, 'Clients pay a yearly fee for tracking, and experts sign off every finding.',
+    reply({ move: 'futures', question: 'Which future is most credible?', covered: ['ambition', 'value', 'economics', 'boundaries'], complete: false }));
+  assert.equal(session.turn.move, 'futures');
+  assert.deepEqual(session.skipped, ['economics', 'boundaries'], 'the participant is told which parts would be skipped');
+  assert.equal((await reopen(client, session, 'futures')).status, 409, 'only a pending skip can be reopened');
+  session = await (await reopen(client, session, 'boundaries')).json();
+  assert.equal(session.turn.move, 'boundaries');
+  assert.equal(session.turn.askedBy, 'guided');
+  assert.equal(session.turn.question, MOVES.find(m => m.id === 'boundaries').question);
+  assert.deepEqual(session.skipped, ['economics']);
+  session = await answer(client, session, 'Experts make the final call.',
+    reply({ move: 'futures', question: 'Which future is most credible?', covered: ['ambition', 'value', 'economics', 'boundaries'], complete: false }));
+  // Answering without reopening economics accepts the skip that was shown on that turn.
+  assert.deepEqual(byMove(session, 'boundaries').ai_covered, ['ambition', 'value', 'economics'], 'the answer records the skips the participant saw');
+  assert.deepEqual(session.skipped, []);
+  assert.ok(!session.answers.some(a => a.move === 'economics'));
+});
+
+test('a skip offered at the end can still be answered, and the source check carries no skips', async () => {
+  const client = memoryClient();
+  let session = await aiSession(client);
+  session = await answer(client, session, 'Everything at once', reply({ move: 'futures', question: 'Which future?', covered: ['ambition', 'value', 'economics'], complete: false }));
+  assert.equal(session.turn.sourceCheck, true);
+  assert.deepEqual(session.skipped, [], 'the AI is asked again after the source check');
+  assert.deepEqual(session.next_turn.covered, undefined);
+  assert.equal((await reopen(client, session, 'value')).status, 409);
+  session = await answer(client, session, 'Confirm', reply({ move: 'futures', question: 'Which future?', covered: ['ambition'], complete: false }));
+  session = await answer(client, session, 'Partner', reply({ move: 'economics', question: 'What repeats?', covered: ['ambition', 'value'], complete: false }));
+  session = await answer(client, session, 'Fees', reply({ move: 'boundaries', question: 'Limits?', covered: ['ambition', 'value'], complete: false }));
+  session = await answer(client, session, 'Limits', reply({ move: 'convergence', question: 'Together?', covered: ['ambition', 'value'], complete: false }));
+  session = await answer(client, session, 'Direction\nOutcome one\nOutcome two\nOutcome three', reply({ complete: true, covered: ['ambition', 'value', 'boundaries'] }));
+  assert.equal(session.turn, null, 'the summary review is next');
+  assert.deepEqual(session.skipped, [], 'value was shown on every turn the participant answered');
+  // A fresh session where the AI says complete with a part never shown: the participant sees it at the summary.
+  const other = memoryClient();
+  session = await atValue(other);
+  session = await answer(other, session, 'Value', reply({ move: 'futures', question: 'Which future?', covered: ['ambition'], complete: false }));
+  session = await answer(other, session, 'Partner', reply({ move: 'economics', question: 'What repeats?', covered: ['ambition'], complete: false }));
+  session = await answer(other, session, 'Fees', reply({ move: 'convergence', question: 'Together?', covered: ['ambition'], complete: false }));
+  session = await answer(other, session, 'Direction\nOutcome one\nOutcome two\nOutcome three', reply({ complete: true, covered: ['ambition', 'boundaries'] }));
+  assert.equal(session.turn, null);
+  assert.deepEqual(session.skipped, ['boundaries']);
+  session = await (await reopen(other, session, 'boundaries')).json();
+  assert.equal(session.turn.move, 'boundaries');
+  session = await answer(other, session, 'Experts decide.', async () => null);
+  assert.equal(session.turn, null);
+  assert.deepEqual(session.skipped, []);
+  assert.ok(byMove(session, 'boundaries'));
+});
+
 test('a fourth question in one move, a covered move or an early complete falls back to the guided path', async () => {
   const client = memoryClient();
   let session = await atValue(client);

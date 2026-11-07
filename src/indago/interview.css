@@ -43,3 +43,9 @@
 .interview .processing-line .link { color: #c8ff00; text-decoration: underline; }
 .interview .asked { color: #c4c8c1; margin: 0 0 1rem; }
 .interview .source-statements { border-left: 3px solid #4ecdc4; margin: .4rem 0 1rem; padding: .3rem 1rem .3rem 2.2rem; background: #1b503933; }
+.interview .skip-notice { border-left: 3px solid #4ecdc4; padding: .6rem 1rem; background: #1b503933; color: #d4e4dc; margin: 1.5rem 0; }
+.interview .skip-notice p { margin: 0; }
+/* Mikey, GRE-4431: on a phone a facilitator sees consent and Start before the long session list. */
+.interview .session-start { display: flex; flex-direction: column; align-items: flex-start; }
+.interview .session-start > .actions { align-self: stretch; }
+@media (max-width: 600px) { .interview .session-start.facilitator .session-list { order: 1; margin-top: 2rem; } }
