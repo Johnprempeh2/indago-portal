@@ -157,7 +157,7 @@ export async function writeAiDraft(id, userId, transaction, ask = askClaude) {
   let draft = claimed.draft;
   let outcome = 'failed';
   try {
-    const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 4500, timeoutMs: 120000,
+    const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 8000, timeoutMs: 300000,
       input: `<corrected_summary>${escapeParticipant(claimed.corrected_summary)}</corrected_summary>\n\nTranscript:\n${interviewTranscript(claimed.answers)}\n\nDraft the record.` });
     if (!text) throw new Error('AI service off.');
     draft = makeAiDraft(aiJsonText(text), claimed.answers, claimed.corrected_summary);

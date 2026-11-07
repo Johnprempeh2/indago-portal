@@ -227,8 +227,8 @@ test('background AI draft replaces the guided draft as a sourced proposal even w
   });
   assert.equal(await writeAiDraft(session.id, 'client-two', inTransaction(client), async () => modelOutput), 'skipped');
   assert.equal(await writeAiDraft(session.id, 'client-one', inTransaction(client), async request => { draftRequest = request; return '```json\n' + modelOutput + '\n```'; }), 'done');
-  assert.equal(draftRequest.timeoutMs, 120000);
-  assert.equal(draftRequest.maxTokens, 4500);
+  assert.equal(draftRequest.timeoutMs, 300000);
+  assert.equal(draftRequest.maxTokens, 8000);
   assert.match(draftRequest.input, /<corrected_summary>My corrected summary<\/corrected_summary>/);
   const stored = client.sessions.get(session.id);
   assert.equal(stored.ai_draft, 'done');
