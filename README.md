@@ -44,6 +44,12 @@ The output contains real client material. Keep it outside the repository and app
 
 The browser polls every five seconds while visible. Saves use record versions to detect another editor's change. CSV export escapes spreadsheet formulas. The database is the master copy. A two-user live check and private address setup follow the security review. Do not add DNS or load real data from this branch.
 
+## Live North Star interviewer (GRE-3641)
+
+Migration `0010_interview_ai` stores the next contextual question so a participant can resume without another model call. Roll back with `0010_interview_ai/rollback.sql`; this removes stored questions, while original answers, separate challenges and submitted drafts remain. The AI route is off unless `INDAGO_AI_INTERVIEW=true`, a server-only `Anthropic_API_Key` (read first, because Netlify fills an unset `ANTHROPIC_API_KEY` with its AI Gateway token) or `ANTHROPIC_API_KEY`, and approved `INDAGO_AI_QUESTION_PROMPT`, `INDAGO_AI_CHALLENGE_PROMPT` and `INDAGO_AI_DRAFT_PROMPT` function settings are all present. The model is `claude-sonnet-5`. Failed or invalid model responses use the guided question, challenge or draft. No key or prompt goes into the browser build. Do not enable this route for client use until the participant notice, named sign-in, security review and release approval are complete.
+
+Migration `0011_interview_ai_choice` stores the participant's choice, made before the first question, between **Start with AI help** and **Continue without AI**. Those two buttons appear only while the AI route is configured. A session started without AI never calls the AI service; its questions, challenges and draft use the guided path. The participant notice is Harbor's wording (GRE-3681 section 5). Its portal retention period, readers and contact are placeholders for John to set before client use. Roll back with `0011_interview_ai_choice/rollback.sql` only together with the code that writes the choice; the rollback removes each session's recorded choice, while answers, challenges and drafts remain.
+
 ## Preview sign-in
 
 The Editor and Viewer password route is off by default. It works only on the separate sample-data site at `https://greatstone-indago-preview.netlify.app`, with `INDAGO_TEST_LOGIN_HOST=greatstone-indago-preview.netlify.app`. Public sign-up and password reset remain closed. Normal invited email-link sign-in remains available.
