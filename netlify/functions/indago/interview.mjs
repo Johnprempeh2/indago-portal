@@ -111,8 +111,9 @@ export async function handleInterview(request, client, route, userId, facilitato
     let draft;
     try { draft = makeDraft(session.answers, body.correctedSummary); } catch (error) { return json({ error: error.message }, 400); }
     try {
-      // Drafts run about 3k tokens (about 25 s); 4.5k and 50 s stay under Netlify's 60 s limit.
-      const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 4500, timeoutMs: 50000,
+      // The preview site returns 504 at about 30 s, so stop at 22 s and keep the guided draft.
+      // Live drafts take 25-30 s; GRE-3641 tracks moving the AI draft out of the request.
+      const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 4500, timeoutMs: 22000,
         input: `<corrected_summary>${escapeParticipant(body.correctedSummary)}</corrected_summary>\n\nTranscript:\n${interviewTranscript(session.answers)}\n\nDraft the record.` });
       if (text) draft = makeAiDraft(text, session.answers, body.correctedSummary);
     } catch (error) {
