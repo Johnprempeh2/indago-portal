@@ -27,8 +27,9 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
   const [busy, setBusy] = useState(false);
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
+  const [facilitator, setFacilitator] = useState(false);
   const questionHeading = useRef(null);
-  useEffect(() => { let active = true; api.list().then(result => { if (active) setListing(result); }).catch(e => { if (active) setError(e.message); }); return () => { active = false; }; }, [api]);
+  useEffect(() => { let active = true; api.list().then(result => { if (active) { setListing(result); setFacilitator(Boolean(result.facilitator)); } }).catch(e => { if (active) setError(e.message); }); return () => { active = false; }; }, [api]);
   async function run(work) {
     setBusy(true); setError('');
     try { const result = await work(); if (result) setSession(result); return true; }
@@ -99,8 +100,8 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
         </div> : <button type="button" disabled={busy || !consent} onClick={() => start(false)}>Start a new interview</button>}
       </section>}
       {session && <>
-        <p className="progress" aria-live="polite">{session.status === 'submitted' ? 'Draft recorded' : `Move ${nextInfo ? MOVES.indexOf(nextInfo) + 1 : 6} of 6`} · IND-NS-001 · G2</p>
-        {!preview && <details className="interview-details processing-line"><summary>{session.ai_assisted ? AI_LINE : GUIDED_LINE} <span className="link">How your answers are handled</span></summary><NoticeList /></details>}
+        <p className="progress" aria-live="polite">{session.status === 'submitted' ? 'Draft recorded' : `Part ${nextInfo ? MOVES.indexOf(nextInfo) + 1 : 6} of 6`}{facilitator && ` · ${session.record_id || 'IND-NS-001'} · ${session.gate || 'G2'}`}</p>
+        {!preview && <details className="interview-details processing-line"><summary>{session.ai_assisted ? AI_LINE : GUIDED_LINE} <span className="link">How your answers are handled</span></summary><NoticeList ai={Boolean(session.ai_assisted)} /></details>}
         {next && session.canWrite && <form className="current" onSubmit={async e => { e.preventDefault(); const ok = await run(() => api.answer(session.id, next.move, text)); if (ok) setText(''); }}>
           <p className="source-label">{nextInfo.title}</p><h2 tabIndex="-1" ref={questionHeading}>{next.question}</h2>
           {next.sourceCheck && <><p className="source-label">Earlier statements to check. They are not facts.</p><ul className="source-statements">{SOURCE_STATEMENTS.map(item => <li key={item}>{item}</li>)}</ul></>}
@@ -146,10 +147,17 @@ const AI_LINE = "AI-assisted: Anthropic's Claude processes your answers for this
 const GUIDED_LINE = 'Guided questions: your answers are not sent to an AI service.';
 
 function AiNotice({ open = false }) {
-  return <details className="interview-details" open={open || undefined}><summary>How your answers are handled</summary><NoticeList /></details>;
+  return <details className="interview-details" open={open || undefined}><summary>How your answers are handled</summary><NoticeList ai /></details>;
 }
 
-function NoticeList() {
+// A session that chose Continue without AI gets the same notice without the AI lines (Mikey, GRE-3641).
+export function NoticeList({ ai }) {
+  if (!ai) return <ul className="notice">
+    <li>No AI service is used in this interview. Guided questions follow a fixed order, and your answers are not sent to an AI service.</li>
+    <li>Your answers and the draft are stored in the Indago portal for <strong>[retention period – John to set]</strong>. Only you and the Greatstone team on this project can read them: <strong>[names or roles – set per session]</strong>.</li>
+    <li>A Greatstone facilitator reviews every draft with you, and you can correct it. No North Star is approved without Gordon's confirmation.</li>
+    <li>Questions or a request to delete your answers: <strong>[contact – John to set]</strong>.</li>
+  </ul>;
   return <ul className="notice">
     <li>An AI service helps run this conversation. It reads your answers to choose the next question, to ask a follow-up when you press <strong>Challenge my response</strong>, and to draft a summary at the end.</li>
     <li>The AI service is Claude, provided by Anthropic. Your answers are sent to it only for this conversation.</li>
@@ -157,7 +165,7 @@ function NoticeList() {
     <li>Anthropic keeps the text it receives for up to <strong>30 days</strong> and then deletes it, unless it is needed to investigate misuse.</li>
     <li>Your answers and the draft are stored in the Indago portal for <strong>[retention period – John to set]</strong>. Only you and the Greatstone team on this project can read them: <strong>[names or roles – set per session]</strong>.</li>
     <li>Nothing the AI writes is final. A Greatstone facilitator reviews every draft with you, and you can correct it. No North Star is approved without Gordon's confirmation.</li>
-    <li>If you prefer not to use AI, choose <strong>Continue without AI</strong>. You get the same moves as guided questions in a fixed order, and your answers are not sent to an AI service.</li>
+    <li>If you prefer not to use AI, choose <strong>Continue without AI</strong>. You get the same topics, as guided questions in a fixed order, and your answers are not sent to an AI service.</li>
     <li>Questions or a request to delete your answers: <strong>[contact – John to set]</strong>.</li>
   </ul>;
 }
