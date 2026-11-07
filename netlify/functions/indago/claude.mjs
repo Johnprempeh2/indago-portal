@@ -56,8 +56,16 @@ export function aiFallbackReason(error) {
 
 export const logAiFallback = (step, error) => console.warn('Indago AI fallback', step, aiFallbackReason(error));
 
+// The model sometimes wraps its JSON in a code fence or a short preamble; keep only the outer object.
+export function aiJsonText(text) {
+  const value = String(text).trim();
+  const start = value.indexOf('{');
+  const end = value.lastIndexOf('}');
+  return start >= 0 && end > start ? value.slice(start, end + 1) : value;
+}
+
 export function parseAiJson(text) {
-  const value = JSON.parse(text);
+  const value = JSON.parse(aiJsonText(text));
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('AI response invalid.');
   return value;
 }

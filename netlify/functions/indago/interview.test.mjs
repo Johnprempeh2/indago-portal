@@ -127,7 +127,7 @@ test('background AI draft replaces the guided draft as a sourced proposal even w
     boundaries: [item('Experts decide', [session.answers[4].id])], hypotheses: [{ question: 'Test demand', sources: [session.answers[3].id] }],
   });
   assert.equal(await writeAiDraft(session.id, 'client-two', inTransaction(client), async () => modelOutput), 'skipped');
-  assert.equal(await writeAiDraft(session.id, 'client-one', inTransaction(client), async request => { draftRequest = request; return modelOutput; }), 'done');
+  assert.equal(await writeAiDraft(session.id, 'client-one', inTransaction(client), async request => { draftRequest = request; return '```json\n' + modelOutput + '\n```'; }), 'done');
   assert.equal(draftRequest.timeoutMs, 120000);
   assert.equal(draftRequest.maxTokens, 4500);
   assert.match(draftRequest.input, /<corrected_summary>My corrected summary<\/corrected_summary>/);

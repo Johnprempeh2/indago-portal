@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { aiFallbackReason, anthropicKey, askClaude, interviewTranscript, keyShape, parseAiJson, singleQuestion } from './claude.mjs';
+import { aiFallbackReason, aiJsonText, anthropicKey, askClaude, interviewTranscript, keyShape, parseAiJson, singleQuestion } from './claude.mjs';
 
 test('server key reads Anthropic_API_Key first, then ANTHROPIC_API_KEY', () => {
   assert.equal(anthropicKey({ ANTHROPIC_API_KEY: 'gateway', Anthropic_API_Key: 'preview' }), 'preview');
@@ -59,6 +59,8 @@ test('participant text stays inside escaped data tags and leading questions fail
   assert.equal(singleQuestion('Which client decision would change?'), 'Which client decision would change?');
   assert.deepEqual(parseAiJson('{"move":"value"}'), { move: 'value' });
   assert.throws(() => parseAiJson('not JSON'));
+  assert.deepEqual(parseAiJson('```json\n{"move":"value"}\n```'), { move: 'value' });
+  assert.equal(aiJsonText('Here is the record:\n{"a":{"b":1}}\nDone.'), '{"a":{"b":1}}');
 });
 
 test('fallback reason names the status or error class, never model or participant text', async () => {

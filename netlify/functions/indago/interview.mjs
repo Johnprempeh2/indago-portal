@@ -1,5 +1,5 @@
 import { challengeFor, makeAiDraft, makeDraft, MOVES, proposedOutcomes } from '../../../src/indago/model/interview.mjs';
-import { aiConfigured, aiFallbackReason, askClaude, escapeParticipant, interviewTranscript, logAiFallback, parseAiJson, singleQuestion } from './claude.mjs';
+import { aiConfigured, aiFallbackReason, aiJsonText, askClaude, escapeParticipant, interviewTranscript, logAiFallback, parseAiJson, singleQuestion } from './claude.mjs';
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status,
   headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -136,7 +136,7 @@ export async function writeAiDraft(id, userId, transaction, ask = askClaude) {
     const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 4500, timeoutMs: 120000,
       input: `<corrected_summary>${escapeParticipant(claimed.corrected_summary)}</corrected_summary>\n\nTranscript:\n${interviewTranscript(claimed.answers)}\n\nDraft the record.` });
     if (!text) throw new Error('AI service off.');
-    draft = makeAiDraft(text, claimed.answers, claimed.corrected_summary);
+    draft = makeAiDraft(aiJsonText(text), claimed.answers, claimed.corrected_summary);
     outcome = 'done';
   } catch (error) {
     logAiFallback('draft', error);
