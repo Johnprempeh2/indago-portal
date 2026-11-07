@@ -91,8 +91,8 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
       </>}
       {error && <p role="alert" className="interview-error">{error}</p>}
       {!session && listing === null && !error && <p aria-busy="true">Loading sessions…</p>}
-      {!session && listing && <section aria-label="Your sessions">
-        {listing.sessions.length > 0 && <><h2>{listing.facilitator ? 'Sessions for facilitator review' : 'Continue your session'}</h2><ul className="sessions">{listing.sessions.map(item => <li key={item.id}><button type="button" onClick={() => open(item.id)}>{item.status === 'submitted' ? 'Review submitted draft' : 'Resume interview'} · {item.id.slice(0, 8)}</button>{listing.facilitator && <a href={`/api/indago/interviews/${item.id}/export`}>Export record</a>}</li>)}</ul></>}
+      {!session && listing && <section aria-label="Your sessions" className={listing.facilitator ? 'session-start facilitator' : 'session-start'}>
+        {listing.sessions.length > 0 && <div className="session-list"><h2>{listing.facilitator ? 'Sessions for facilitator review' : 'Continue your session'}</h2><ul className="sessions">{listing.sessions.map(item => <li key={item.id}><button type="button" onClick={() => open(item.id)}>{item.status === 'submitted' ? 'Review submitted draft' : 'Resume interview'} · {item.id.slice(0, 8)}</button>{listing.facilitator && <a href={`/api/indago/interviews/${item.id}/export`}>Export record</a>}</li>)}</ul></div>}
         <label className="consent"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /> {preview ? 'I understand this synthetic preview keeps invented answers in this browser tab, does not save them to the private portal, and does not use AI to process them.' : 'I agree to take part and to have my answers, follow-up replies, corrections and draft saved for review by Greatstone facilitators with access.'}</label>
         {!preview && listing.aiAvailable ? <div className="actions ai-choice">
           <button type="button" disabled={busy || !consent} onClick={() => start(true)}>Start with AI help</button>
