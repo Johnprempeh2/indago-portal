@@ -1,5 +1,5 @@
 import { challengeFor, makeAiDraft, makeDraft, MOVES, proposedOutcomes } from '../../../src/indago/model/interview.mjs';
-import { askClaude, escapeParticipant, interviewTranscript, logAiFallback, parseAiJson, singleQuestion } from './claude.mjs';
+import { aiFallbackReason, askClaude, escapeParticipant, interviewTranscript, logAiFallback, parseAiJson, singleQuestion } from './claude.mjs';
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status,
   headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -115,7 +115,11 @@ export async function handleInterview(request, client, route, userId, facilitato
       const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 4500, timeoutMs: 50000,
         input: `<corrected_summary>${escapeParticipant(body.correctedSummary)}</corrected_summary>\n\nTranscript:\n${interviewTranscript(session.answers)}\n\nDraft the record.` });
       if (text) draft = makeAiDraft(text, session.answers, body.correctedSummary);
-    } catch (error) { logAiFallback('draft', error); /* The guided draft remains available for facilitator review. */ }
+    } catch (error) {
+      logAiFallback('draft', error);
+      // The guided draft remains available for facilitator review; record why, as our own fixed text only.
+      draft.aiFallbackReason = aiFallbackReason(error);
+    }
     await client.query(`UPDATE indago.client_interviews SET corrected_summary = $1, draft = $2, status = 'submitted', updated_at = now()
       WHERE id = $3`, [body.correctedSummary, JSON.stringify(draft), id]);
   }

@@ -116,3 +116,18 @@ test('AI draft output is recorded as a sourced proposal even when model claims a
   assert.equal(session.draft.candidates[0].sources[0].answerId, session.answers[0].id);
   assert.equal(session.status, 'submitted');
 });
+
+test('a failed AI draft keeps the guided draft and records only a fixed reason', async () => {
+  const client = memoryClient();
+  let session = await (await handleInterview(post({ consent: true }), client, 'interviews', 'client-one')).json();
+  for (const move of MOVES) {
+    const original = move.id === 'convergence' ? 'Direction\nOutcome one\nOutcome two\nOutcome three' : `${move.id} response`;
+    session = await (await handleInterview(post({ move: move.id, original }), client,
+      `interviews/${session.id}/answers`, 'client-one')).json();
+  }
+  session = await (await handleInterview(post({ correctedSummary: 'Summary' }), client, `interviews/${session.id}/submit`,
+    'client-one', false, false, async () => JSON.stringify({ candidates: [{ text: 'Participant secret is final', sources: [] }] }))).json();
+  assert.equal(session.draft.approvalStatus, 'Draft');
+  assert.equal(session.draft.aiFallbackReason, 'AI draft incomplete.');
+  assert.doesNotMatch(JSON.stringify(session.draft), /Participant secret/);
+});
