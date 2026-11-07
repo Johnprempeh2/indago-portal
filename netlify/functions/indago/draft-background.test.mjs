@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { draftHandler } from './indago-draft-background.mjs';
+import { draftHandler } from '../indago-draft-background.mjs';
 
 const id = '00000000-0000-4000-8000-000000000001';
 const request = (method = 'POST', query = `?id=${id}`) => new Request(`https://example.test/.netlify/functions/indago-draft-background${query}`, { method });
