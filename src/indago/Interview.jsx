@@ -36,7 +36,7 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
     finally { setBusy(false); }
   }
   async function open(id) { await run(() => api.get(id)); }
-  async function start() { const ok = await run(() => api.create()); if (ok) setListing(null); }
+  async function start(ai) { const ok = await run(() => api.create(ai)); if (ok) setListing(null); }
   const next = session && nextMove(session.answers);
   const ready = session && !next;
   const suggestedSummary = ready ? MOVES.map(move => {
@@ -64,19 +64,25 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
       {!session && <>
         <p className="intro">Start in your own words. You can pause and return. Gordon confirms the final wording.</p>
         <p className="opening-question">First question: {MOVES[0].question}</p>
-        <details className="interview-details"><summary>How this interview works and who can review it</summary>
-          <p className="notice">{preview ? 'In this preview, invented answers stay in this browser tab. They are not saved to the private portal.' : 'Your interview record is available to you and Greatstone facilitators who have been given review access. They can read and export your saved answers, follow-up replies, corrected summary and draft. Greatstone will review any draft with you before the final wording is confirmed. This guided interview does not use AI to process your answers or write the draft. Your answers and edits are saved in the private portal when you save or submit them.'}</p>
-        </details>
+        {preview ? <details className="interview-details"><summary>How this interview works and who can review it</summary>
+          <p className="notice">In this preview, invented answers stay in this browser tab. They are not saved to the private portal.</p>
+        </details> : listing?.aiAvailable ? <AiNotice open /> : <details className="interview-details"><summary>How this interview works and who can review it</summary>
+          <p className="notice">Your interview record is available to you and Greatstone facilitators who have been given review access. They can read and export your saved answers, follow-up replies, corrected summary and draft. Greatstone will review any draft with you before the final wording is confirmed. Your answers are not sent to an AI service. Your answers and edits are saved in the private portal when you save or submit them.</p>
+        </details>}
       </>}
       {error && <p role="alert" className="interview-error">{error}</p>}
       {!session && listing === null && !error && <p aria-busy="true">Loading sessions…</p>}
       {!session && listing && <section aria-label="Your sessions">
         {listing.sessions.length > 0 && <><h2>{listing.facilitator ? 'Sessions for facilitator review' : 'Continue your session'}</h2><ul className="sessions">{listing.sessions.map(item => <li key={item.id}><button type="button" onClick={() => open(item.id)}>{item.status === 'submitted' ? 'Review submitted draft' : 'Resume interview'} · {item.id.slice(0, 8)}</button>{listing.facilitator && <a href={`/api/indago/interviews/${item.id}/export`}>Export record</a>}</li>)}</ul></>}
-        <label className="consent"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /> {preview ? 'I understand this synthetic preview keeps invented answers in this browser tab, does not save them to the private portal, and does not use AI to process them.' : 'I agree to take part and to have my answers, follow-up replies, corrections and draft saved for review by Greatstone facilitators with access. I understand that this guided interview does not use AI to process my answers.'}</label>
-        <button type="button" disabled={busy || !consent} onClick={start}>Start a new interview</button>
+        <label className="consent"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /> {preview ? 'I understand this synthetic preview keeps invented answers in this browser tab, does not save them to the private portal, and does not use AI to process them.' : 'I agree to take part and to have my answers, follow-up replies, corrections and draft saved for review by Greatstone facilitators with access.'}</label>
+        {!preview && listing.aiAvailable ? <div className="actions ai-choice">
+          <button type="button" disabled={busy || !consent} onClick={() => start(true)}>Start with AI help</button>
+          <button type="button" disabled={busy || !consent} onClick={() => start(false)}>Continue without AI</button>
+        </div> : <button type="button" disabled={busy || !consent} onClick={() => start(false)}>Start a new interview</button>}
       </section>}
       {session && <>
         <p className="progress" aria-live="polite">{session.status === 'submitted' ? 'Draft recorded' : `Move ${next ? MOVES.indexOf(next) + 1 : 6} of 6`} · IND-NS-001 · G2</p>
+        {!preview && <details className="interview-details processing-line"><summary>{session.ai_assisted ? AI_LINE : GUIDED_LINE} <span className="link">How your answers are handled</span></summary><NoticeList /></details>}
         {next && session.canWrite && <form className="current" onSubmit={async e => { e.preventDefault(); const ok = await run(() => api.answer(session.id, next.id, text)); if (ok) setText(''); }}>
           <p className="source-label">{next.title}</p><h2 tabIndex="-1" ref={questionHeading}>{session.next_question || next.question}</h2>
           <label htmlFor="answer">Your response</label><textarea id="answer" value={text} required maxLength={20000} rows="7" onChange={e => setText(e.target.value)} />
@@ -111,6 +117,28 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
       </>}
     </div>
   </main>;
+}
+
+// Participant notice: Harbor's approved wording (GRE-3681 section 5, rev 2). The Anthropic figure is Flint's
+// confirmed 30 days; the bracketed values are John's to set before any client use.
+const AI_LINE = "AI-assisted: Anthropic's Claude processes your answers for this interview only, not for training. A person reviews every draft.";
+const GUIDED_LINE = 'Guided questions: your answers are not sent to an AI service.';
+
+function AiNotice({ open = false }) {
+  return <details className="interview-details" open={open || undefined}><summary>How your answers are handled</summary><NoticeList /></details>;
+}
+
+function NoticeList() {
+  return <ul className="notice">
+    <li>An AI service helps run this conversation. It reads your answers to choose the next question, to ask a follow-up when you press <strong>Challenge my response</strong>, and to draft a summary at the end.</li>
+    <li>The AI service is Claude, provided by Anthropic. Your answers are sent to it only for this conversation.</li>
+    <li>Anthropic does not use your answers to train its models, and neither does Greatstone.</li>
+    <li>Anthropic keeps the text it receives for up to <strong>30 days</strong> and then deletes it, unless it is needed to investigate misuse.</li>
+    <li>Your answers and the draft are stored in the Indago portal for <strong>[retention period – John to set]</strong>. Only you and the Greatstone team on this project can read them: <strong>[names or roles – set per session]</strong>.</li>
+    <li>Nothing the AI writes is final. A Greatstone facilitator reviews every draft with you, and you can correct it. No North Star is approved without Gordon's confirmation.</li>
+    <li>If you prefer not to use AI, choose <strong>Continue without AI</strong>. You get the same moves as guided questions in a fixed order, and your answers are not sent to an AI service.</li>
+    <li>Questions or a request to delete your answers: <strong>[contact – John to set]</strong>.</li>
+  </ul>;
 }
 
 function SourceLinks({ sources = [] }) {

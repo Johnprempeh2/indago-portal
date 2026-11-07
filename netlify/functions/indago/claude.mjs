@@ -12,10 +12,13 @@ export function keyShape(env = process.env) {
   return { name, length: value.length, prefix: value.startsWith('sk-ant-'), trimmed: value === value.trim(), quoted: /^["']|["']$/.test(value) };
 }
 
+// True when the flag and all three approved prompts are set, so the participant can be offered AI help.
+export const aiConfigured = (env = process.env) => env.INDAGO_AI_INTERVIEW === 'true' && Boolean(anthropicKey(env)) &&
+  Boolean(env.INDAGO_AI_QUESTION_PROMPT && env.INDAGO_AI_CHALLENGE_PROMPT && env.INDAGO_AI_DRAFT_PROMPT);
+
 export async function askClaude({ system, input, maxTokens = 800, timeoutMs = 15000 }, {
   key = anthropicKey(),
-  enabled = process.env.INDAGO_AI_INTERVIEW === 'true' &&
-    Boolean(process.env.INDAGO_AI_QUESTION_PROMPT && process.env.INDAGO_AI_CHALLENGE_PROMPT && process.env.INDAGO_AI_DRAFT_PROMPT),
+  enabled = aiConfigured(),
   fetcher = fetch,
 } = {}) {
   if (!enabled || !key || !system) {

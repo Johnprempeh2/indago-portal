@@ -1,5 +1,5 @@
 import { challengeFor, makeAiDraft, makeDraft, MOVES, proposedOutcomes } from '../../../src/indago/model/interview.mjs';
-import { aiFallbackReason, askClaude, escapeParticipant, interviewTranscript, logAiFallback, parseAiJson, singleQuestion } from './claude.mjs';
+import { aiConfigured, aiFallbackReason, askClaude, escapeParticipant, interviewTranscript, logAiFallback, parseAiJson, singleQuestion } from './claude.mjs';
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status,
   headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -22,20 +22,22 @@ async function load(client, id, userId) {
     challenges: challenges.filter(item => item.answer_id === answer.id) })) };
 }
 
-export async function handleInterview(request, client, route, userId, facilitator = false, openAccess = false, ask = askClaude) {
+export async function handleInterview(request, client, route, userId, facilitator = false, openAccess = false, ask = askClaude, aiAvailable = aiConfigured()) {
   if (openAccess) return json({ error: 'Invited sign-in is required.' }, 403);
   const parts = route.split('/');
   if (request.method === 'GET' && route === 'interviews') {
     const rows = await client.query(`SELECT id, status, updated_at, record_id, gate FROM indago.client_interviews
       ORDER BY updated_at DESC LIMIT 50`);
-    return json({ sessions: rows.rows, facilitator });
+    return json({ sessions: rows.rows, facilitator, aiAvailable });
   }
   if (request.method === 'POST' && route === 'interviews') {
     let body;
     try { body = await payload(request); } catch { return json({ error: 'Invalid request.' }, 400); }
     if (body?.consent !== true) return json({ error: 'Please confirm the privacy notice before starting.' }, 400);
     const id = crypto.randomUUID();
-    await client.query('INSERT INTO indago.client_interviews(id, owner_id, consented_at) VALUES ($1,$2,now())', [id, userId]);
+    // "Continue without AI" is the participant's consent choice: that session never calls the AI service.
+    await client.query('INSERT INTO indago.client_interviews(id, owner_id, consented_at, ai_assisted) VALUES ($1,$2,now(),$3)',
+      [id, userId, body.ai === true && aiAvailable]);
     return json(await load(client, id, userId), 201);
   }
   if (parts[0] !== 'interviews' || parts.length < 2 || !/^[0-9a-f-]{36}$/.test(parts[1])) return json({ error: 'Not found.' }, 404);
@@ -45,7 +47,8 @@ export async function handleInterview(request, client, route, userId, facilitato
   if (request.method === 'GET' && parts.length === 2) return json(session);
   if (request.method === 'GET' && parts[2] === 'export' && parts.length === 3) {
     if (!facilitator) return json({ error: 'Facilitator invitation required.' }, 403);
-    const text = [`North Star interview | ${session.record_id} | ${session.gate}`, `Status: ${session.status}`, '',
+    const text = [`North Star interview | ${session.record_id} | ${session.gate}`, `Status: ${session.status}`,
+      `Processing: ${session.ai_assisted ? 'AI-assisted (Claude, Anthropic)' : 'guided, no AI'}`, '',
       ...session.answers.flatMap(answer => [
         `${MOVES.find(move => move.id === answer.move)?.title || answer.move} [${answer.id}]`,
         `Client statement: ${answer.original}`,
@@ -71,7 +74,7 @@ export async function handleInterview(request, client, route, userId, facilitato
     await client.query(`INSERT INTO indago.client_interview_answers(id, session_id, move, original)
       VALUES ($1,$2,$3,$4)`, [answerId, id, body.move, body.original]);
     const remaining = MOVES.find(move => !session.answers.some(answer => answer.move === move.id) && move.id !== body.move);
-    if (remaining) {
+    if (remaining && session.ai_assisted) {
       let question = null;
       try {
         const answers = [...session.answers, { id: answerId, move: body.move, original: body.original, challenges: [] }];
@@ -90,7 +93,7 @@ export async function handleInterview(request, client, route, userId, facilitato
     if (!answer) return json({ error: 'Answer not found.' }, 404);
     if (answer.challenges.some(item => !item.reply)) return json({ error: 'Reply to or skip the open challenge first.' }, 409);
     let question = challengeFor(answer.move, answer.original, session.answers.filter(item => item.id !== answer.id), answer.challenges.length);
-    try {
+    if (session.ai_assisted) try {
       const text = await ask({ system: process.env.INDAGO_AI_CHALLENGE_PROMPT, input: `Challenged answer:\n<participant_answer id="${answer.id}" move="${answer.move}">${escapeParticipant(answer.original)}</participant_answer>\n\nEarlier challenges on this answer (do not repeat these angles): ${answer.challenges.map(item => item.question).join('; ') || 'none'}\n\nConversation so far:\n${interviewTranscript(session.answers)}\n\nAsk one pointed follow-up.` });
       if (text) {
         const result = parseAiJson(text);
@@ -110,7 +113,7 @@ export async function handleInterview(request, client, route, userId, facilitato
     if (typeof body.correctedSummary !== 'string' || !body.correctedSummary.trim() || body.correctedSummary.length > 20000) return json({ error: 'Review your summary first.' }, 400);
     let draft;
     try { draft = makeDraft(session.answers, body.correctedSummary); } catch (error) { return json({ error: error.message }, 400); }
-    try {
+    if (session.ai_assisted) try {
       // The preview site returns 504 at about 30 s, so stop at 22 s and keep the guided draft.
       // Live drafts take 25-30 s; GRE-3641 tracks moving the AI draft out of the request.
       const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 4500, timeoutMs: 22000,

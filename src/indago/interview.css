@@ -37,3 +37,7 @@
 .interview small { color: #c4c8c1; }
 @media (max-width: 600px) { .interview-head { align-items: flex-start; flex-direction: column; } .interview-wrap { padding-top: 1.3rem; } }
 @media (prefers-reduced-motion: reduce) { .interview *, .interview *::before, .interview *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+.interview ul.notice { margin: 0; padding: .8rem 1rem .8rem 2.2rem; display: grid; gap: .45rem; }
+.interview .ai-choice button { flex: 1 1 14rem; }
+.interview .processing-line > summary { font-size: .92rem; color: #d4e4dc; }
+.interview .processing-line .link { color: #c8ff00; text-decoration: underline; }

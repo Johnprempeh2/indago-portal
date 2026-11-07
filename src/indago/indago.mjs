@@ -10,7 +10,7 @@ export function makeIndagoApi(fetcher = fetch) {
   return {
     async listInterviews() { return call('interviews'); },
     async getInterview(id) { return call(`interviews/${id}`); },
-    async createInterview() { return call('interviews', { consent: true }); },
+    async createInterview(ai = false) { return call('interviews', { consent: true, ai: ai === true }); },
     async saveInterviewAnswer(id, move, original) { return call(`interviews/${id}/answers`, { move, original }); },
     async challengeInterviewAnswer(id, answerId) { return call(`interviews/${id}/challenges`, { answerId }); },
     async replyToInterviewChallenge(id, challengeId, reply) { return call(`interviews/${id}/replies`, { challengeId, reply }); },

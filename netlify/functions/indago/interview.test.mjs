@@ -10,7 +10,8 @@ function memoryClient() {
   return {
     sessions, answers, challenges,
     async query(sql, args = []) {
-      if (sql.startsWith('INSERT INTO indago.client_interviews')) { sessions.set(args[0], { id: args[0], owner_id: args[1], record_id: 'IND-NS-001', gate: 'G2', status: 'in_progress', corrected_summary: '', draft: null }); return { rows: [] }; }
+      if (sql.startsWith('INSERT INTO indago.client_interviews')) { sessions.set(args[0], { id: args[0], owner_id: args[1], ai_assisted: args[2], record_id: 'IND-NS-001', gate: 'G2', status: 'in_progress', corrected_summary: '', draft: null }); return { rows: [] }; }
+      if (sql.startsWith('SELECT id, status, updated_at')) return { rows: [...sessions.values()] };
       if (sql.startsWith('SELECT * FROM indago.client_interviews')) return { rows: [sessions.get(args[0])].filter(Boolean) };
       if (sql.startsWith('SELECT id, move, original')) return { rows: answers.filter(a => a.session_id === args[0]) };
       if (sql.startsWith('SELECT c.id')) return { rows: challenges.filter(c => answers.some(a => a.id === c.answer_id && a.session_id === args[0])) };
@@ -65,7 +66,7 @@ test('API keeps first words, stores challenges separately, and submits only a dr
 
 test('next AI question uses answer context, and a failed call keeps the guided path', async () => {
   const client = memoryClient();
-  let session = await (await handleInterview(post({ consent: true }), client, 'interviews', 'client-one')).json();
+  let session = await (await handleInterview(post({ consent: true, ai: true }), client, 'interviews', 'client-one', false, false, undefined, true)).json();
   const seen = [];
   const ask = async request => { seen.push(request); return JSON.stringify({ move: 'value', question: 'Which client decision would change first?', covered: ['ambition'], complete: false }); };
   session = await (await handleInterview(post({ move: 'ambition', original: 'Client decisions improve' }), client,
@@ -82,7 +83,7 @@ test('next AI question uses answer context, and a failed call keeps the guided p
 
 test('AI challenge keeps the original answer and stores the follow-up separately', async () => {
   const client = memoryClient();
-  let session = await (await handleInterview(post({ consent: true }), client, 'interviews', 'client-one')).json();
+  let session = await (await handleInterview(post({ consent: true, ai: true }), client, 'interviews', 'client-one', false, false, undefined, true)).json();
   session = await (await handleInterview(post({ move: 'ambition', original: 'Original view' }), client,
     `interviews/${session.id}/answers`, 'client-one')).json();
   const answerId = session.answers[0].id;
@@ -94,7 +95,7 @@ test('AI challenge keeps the original answer and stores the follow-up separately
 
 test('AI draft output is recorded as a sourced proposal even when model claims approval', async () => {
   const client = memoryClient();
-  let session = await (await handleInterview(post({ consent: true }), client, 'interviews', 'client-one')).json();
+  let session = await (await handleInterview(post({ consent: true, ai: true }), client, 'interviews', 'client-one', false, false, undefined, true)).json();
   for (const move of MOVES) {
     const original = move.id === 'convergence' ? 'Direction\nOutcome one\nOutcome two\nOutcome three' : `${move.id} response`;
     session = await (await handleInterview(post({ move: move.id, original }), client,
@@ -119,7 +120,7 @@ test('AI draft output is recorded as a sourced proposal even when model claims a
 
 test('a failed AI draft keeps the guided draft and records only a fixed reason', async () => {
   const client = memoryClient();
-  let session = await (await handleInterview(post({ consent: true }), client, 'interviews', 'client-one')).json();
+  let session = await (await handleInterview(post({ consent: true, ai: true }), client, 'interviews', 'client-one', false, false, undefined, true)).json();
   for (const move of MOVES) {
     const original = move.id === 'convergence' ? 'Direction\nOutcome one\nOutcome two\nOutcome three' : `${move.id} response`;
     session = await (await handleInterview(post({ move: move.id, original }), client,
@@ -130,4 +131,25 @@ test('a failed AI draft keeps the guided draft and records only a fixed reason',
   assert.equal(session.draft.approvalStatus, 'Draft');
   assert.equal(session.draft.aiFallbackReason, 'AI draft incomplete.');
   assert.doesNotMatch(JSON.stringify(session.draft), /Participant secret/);
+});
+
+test('Continue without AI makes no AI call, and AI cannot be chosen while it is off', async () => {
+  const client = memoryClient();
+  const ask = async () => { throw new Error('AI must not be called'); };
+  const listed = await (await handleInterview(new Request('https://example.test/api/indago/interviews'), client, 'interviews', 'client-one', false, false, ask, false)).json();
+  assert.equal(listed.aiAvailable, false);
+  let session = await (await handleInterview(post({ consent: true, ai: true }), client, 'interviews', 'client-one', false, false, ask, false)).json();
+  assert.equal(session.ai_assisted, false);
+  session = await (await handleInterview(post({ consent: true, ai: false }), client, 'interviews', 'client-one', false, false, ask, true)).json();
+  assert.equal(session.ai_assisted, false);
+  for (const move of MOVES) {
+    const original = move.id === 'convergence' ? 'Direction\nOutcome one\nOutcome two\nOutcome three' : `${move.id} response`;
+    session = await (await handleInterview(post({ move: move.id, original }), client, `interviews/${session.id}/answers`, 'client-one', false, false, ask)).json();
+  }
+  assert.equal(session.next_question, undefined);
+  session = await (await handleInterview(post({ answerId: session.answers[0].id }), client, `interviews/${session.id}/challenges`, 'client-one', false, false, ask)).json();
+  assert.ok(session.answers[0].challenges[0].question);
+  session = await (await handleInterview(post({ correctedSummary: 'Summary' }), client, `interviews/${session.id}/submit`, 'client-one', false, false, ask)).json();
+  assert.equal(session.draft.processing, 'guided, no AI');
+  assert.equal(session.draft.aiFallbackReason, undefined);
 });
