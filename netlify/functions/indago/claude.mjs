@@ -1,8 +1,11 @@
 // Server only. The caller supplies approved instructions; participant text is data.
 const ENDPOINT = 'https://api.anthropic.com/v1/messages';
 
+// The preview site stores the key as `Anthropic_API_Key`; prefer the standard name when set.
+export const anthropicKey = (env = process.env) => env.ANTHROPIC_API_KEY || env.Anthropic_API_Key || '';
+
 export async function askClaude({ system, input, maxTokens = 400, temperature = 0.3 }, {
-  key = process.env.ANTHROPIC_API_KEY,
+  key = anthropicKey(),
   enabled = process.env.INDAGO_AI_INTERVIEW === 'true' &&
     Boolean(process.env.INDAGO_AI_QUESTION_PROMPT && process.env.INDAGO_AI_CHALLENGE_PROMPT && process.env.INDAGO_AI_DRAFT_PROMPT),
   fetcher = fetch,

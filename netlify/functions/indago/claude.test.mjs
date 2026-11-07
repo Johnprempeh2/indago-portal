@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { askClaude, interviewTranscript, parseAiJson, singleQuestion } from './claude.mjs';
+import { anthropicKey, askClaude, interviewTranscript, parseAiJson, singleQuestion } from './claude.mjs';
+
+test('server key reads ANTHROPIC_API_KEY first, then Anthropic_API_Key', () => {
+  assert.equal(anthropicKey({ ANTHROPIC_API_KEY: 'standard', Anthropic_API_Key: 'preview' }), 'standard');
+  assert.equal(anthropicKey({ Anthropic_API_Key: 'preview' }), 'preview');
+  assert.equal(anthropicKey({ ANTHROPIC_API_KEY: '', Anthropic_API_Key: 'preview' }), 'preview');
+  assert.equal(anthropicKey({ PIA_KEY: 'other' }), '');
+});
 
 test('AI is off without a server key, feature flag, and approved instructions', async () => {
   const fetcher = () => { throw new Error('should not call provider'); };
