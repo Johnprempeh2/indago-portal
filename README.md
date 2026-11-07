@@ -32,6 +32,8 @@ The invited client interview lives at `/portal/indago/interview`. Migration `000
 
 Migration `0008_facilitators` adds a member flag that defaults to `false`. After Everest confirms the approved Greatstone facilitator email addresses, an administrator can set each named member with `UPDATE indago.members SET facilitator = true WHERE email = lower('approved-address@example.com');`. Keep client members at `false`. Open access always receives the client view. Before rolling back `0008_facilitators`, export any facilitator assignments because the rollback drops the column.
 
+Migration `0010_deep_dive_mcp` adds the Deep Dive MCP at `/api/deep-dive-mcp`: agents read the record and write drafts that a named facilitator approves. Tokens, tools, interview logging and rollback are in [docs/DEEP-DIVE-MCP.md](docs/DEEP-DIVE-MCP.md). Run `netlify/database/tests/deep-dive-mcp.sql` against a local database after all migrations.
+
 ## Source import
 
 The three source instruments and approved v1 HTML stay outside Git. `scripts/prepare-import.py` reads both workbooks by sheet name, checks the toolkit document and extracts the v1 Toolkit state. It validates 41 work packages, 6 gates, 140 findings and 31 requests, then writes a private SQL import file. The workbook attachment labels are reversed, so sheet names determine their roles.

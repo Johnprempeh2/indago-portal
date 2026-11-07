@@ -42,3 +42,4 @@ jobs:
             psql -v ON_ERROR_STOP=1 -f "$migration" > /dev/null
           done
           psql -v ON_ERROR_STOP=1 -f netlify/database/tests/client-interviews.sql
+          psql -v ON_ERROR_STOP=1 -f netlify/database/tests/deep-dive-mcp.sql
