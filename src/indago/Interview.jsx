@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { challengeFor, makeDraft, MOVES, nextMove, proposedOutcomes } from './model/interview.mjs';
+import { challengeFor, guidedTurn, HYPOTHESIS_NOTE, makeDraft, MOVES, proposedOutcomes, SOURCE_STATEMENTS } from './model/interview.mjs';
 import './interview.css';
 
 export function makePreviewInterviewApi(storage = sessionStorage) {
@@ -11,7 +11,7 @@ export function makePreviewInterviewApi(storage = sessionStorage) {
     list: async () => ({ sessions: read() ? [read()] : [], facilitator: false }),
     get,
     create: async () => write({ id: crypto.randomUUID(), record_id: 'IND-NS-001', gate: 'G2', status: 'in_progress', canWrite: true, answers: [], corrected_summary: '', draft: null, consented_at: new Date().toISOString() }),
-    answer: async (id, move, original) => { const s = await get(id); if (s.answers.some(a => a.move === move)) throw new Error('Original answer is already recorded.'); if (move === 'convergence') proposedOutcomes(original); s.answers.push({ id: crypto.randomUUID(), move, original, challenges: [] }); return write(s); },
+    answer: async (id, move, original) => { const s = await get(id); const turn = guidedTurn(s.answers); if (!turn || turn.move !== move) throw new Error('This question has changed.'); if (move === 'convergence') proposedOutcomes(original); s.answers.push({ id: crypto.randomUUID(), move, original, question: turn.question, asked_by: 'guided', source_check: turn.sourceCheck === true, challenges: [] }); return write(s); },
     challenge: async (id, answerId) => { const s = await get(id); const a = s.answers.find(item => item.id === answerId); if (!a) throw new Error('Answer not found.'); a.challenges.push({ id: crypto.randomUUID(), answer_id: answerId, question: challengeFor(a.move, a.original, s.answers.filter(item => item.id !== answerId), a.challenges.length), reply: '' }); return write(s); },
     reply: async (id, challengeId, reply) => { const s = await get(id); const c = s.answers.flatMap(a => a.challenges).find(item => item.id === challengeId); if (!c || c.reply) throw new Error('Challenge not found.'); c.reply = reply || 'Skipped by participant'; return write(s); },
     submit: async (id, correctedSummary) => { const s = await get(id); s.draft = makeDraft(s.answers, correctedSummary); s.corrected_summary = correctedSummary; s.status = 'submitted'; s.canWrite = false; return write(s); },
@@ -37,12 +37,14 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
   }
   async function open(id) { await run(() => api.get(id)); }
   async function start(ai) { const ok = await run(() => api.create(ai)); if (ok) setListing(null); }
-  const next = session && nextMove(session.answers);
+  // The server sends the question waiting for an answer; the synthetic preview works it out in the browser.
+  const next = session && ('turn' in session ? session.turn : guidedTurn(session.answers));
+  const nextInfo = next && MOVES.find(move => move.id === next.move);
   const ready = session && !next;
   const suggestedSummary = ready ? MOVES.map(move => {
-    const answer = session.answers.find(item => item.move === move.id);
-    return `${move.title}: ${answer.original}`;
-  }).join('\n\n') : '';
+    const own = session.answers.filter(item => item.move === move.id && !item.source_check);
+    return own.length ? `${move.title}: ${own.map(answer => answer.original).join(' ')}` : null;
+  }).concat(session.answers.filter(item => item.source_check).map(answer => `Earlier statements: ${answer.original}`)).filter(Boolean).join('\n\n') : '';
   const hasUnsavedText = Boolean(text.trim() || Object.values(replies).some(reply => reply.trim()) || (ready && summary && summary !== (session.corrected_summary || suggestedSummary)));
   useEffect(() => {
     if (!hasUnsavedText) return;
@@ -55,7 +57,7 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
     onExit();
   }
   useEffect(() => { if (ready && !summary) setSummary(session.corrected_summary || suggestedSummary); }, [ready, session?.id]);
-  useEffect(() => { if (session?.canWrite) questionHeading.current?.focus(); }, [next?.id, ready, session?.id]);
+  useEffect(() => { if (session?.canWrite) questionHeading.current?.focus(); }, [next?.question, session?.answers.length, ready, session?.id]);
   const aiDrafting = session?.status === 'submitted' && ['pending', 'running'].includes(session.ai_draft);
   const [draftWaitOver, setDraftWaitOver] = useState(false);
   useEffect(() => {
@@ -97,10 +99,11 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
         </div> : <button type="button" disabled={busy || !consent} onClick={() => start(false)}>Start a new interview</button>}
       </section>}
       {session && <>
-        <p className="progress" aria-live="polite">{session.status === 'submitted' ? 'Draft recorded' : `Move ${next ? MOVES.indexOf(next) + 1 : 6} of 6`} · IND-NS-001 · G2</p>
+        <p className="progress" aria-live="polite">{session.status === 'submitted' ? 'Draft recorded' : `Move ${nextInfo ? MOVES.indexOf(nextInfo) + 1 : 6} of 6`} · IND-NS-001 · G2</p>
         {!preview && <details className="interview-details processing-line"><summary>{session.ai_assisted ? AI_LINE : GUIDED_LINE} <span className="link">How your answers are handled</span></summary><NoticeList /></details>}
         {next && session.canWrite && <form className="current" onSubmit={async e => { e.preventDefault(); const ok = await run(() => api.answer(session.id, next.id, text)); if (ok) setText(''); }}>
-          <p className="source-label">{next.title}</p><h2 tabIndex="-1" ref={questionHeading}>{session.next_question || next.question}</h2>
+          <p className="source-label">{nextInfo.title}</p><h2 tabIndex="-1" ref={questionHeading}>{next.question}</h2>
+          {next.sourceCheck && <><p className="source-label">Earlier statements to check. They are not facts.</p><ul className="source-statements">{SOURCE_STATEMENTS.map(item => <li key={item}>{item}</li>)}</ul></>}
           <label htmlFor="answer">Your response</label><textarea id="answer" value={text} required maxLength={20000} rows="7" onChange={e => setText(e.target.value)} />
           <div className="actions"><button disabled={busy || !text.trim()}>Save and continue</button><button type="button" className="quiet" onClick={exit}>Pause and return later</button></div>
         </form>}
@@ -116,11 +119,12 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
           <h3>Draft North Star candidates</h3><ol>{session.draft?.candidates?.map((candidate, index) => <li key={index}><strong>{candidate.framing}</strong><p>{candidate.text}</p><small>{candidate.status} · {candidate.provenance} · Sources: <SourceLinks sources={candidate.sources} /></small></li>)}</ol>
           <h3>Proposed outcomes</h3><ul>{session.draft?.outcomes?.map((outcome, i) => <li key={i}>{outcome.text} <small>({outcome.status}; <SourceLinks sources={outcome.sources} />)</small></li>)}</ul>
           <h3>Boundaries</h3><ul>{session.draft?.boundaries?.map((boundary, i) => <li key={i}>{boundary.text} <small>({boundary.status}; <SourceLinks sources={boundary.sources} />)</small></li>)}</ul>
-          <h3>Evidence requests</h3><ul>{session.draft?.evidenceRequests?.map(request => <li key={request.id}>{request.id}: {request.question} <small>({request.status}; <SourceLinks sources={request.sources} />)</small></li>)}</ul>
+          <h3>Evidence requests</h3><p><small>{session.draft?.hypothesisNote || HYPOTHESIS_NOTE}</small></p><ul>{session.draft?.evidenceRequests?.map(request => <li key={request.id}>{request.id}: {request.question} <small>({request.status}; <SourceLinks sources={request.sources} />)</small></li>)}</ul>
         </section>}
         <details className="interview-details" open={session.status === 'submitted' ? true : undefined}><summary>Previous answers and challenges ({session.answers.length})</summary>
         {session.answers.map(answer => <section className="answer-card" key={answer.id} id={`answer-${answer.id}`}>
-          <h2>{MOVES.find(move => move.id === answer.move)?.title}</h2>
+          <h2>{MOVES.find(move => move.id === answer.move)?.title}{answer.source_check ? ' · earlier statements' : ''}</h2>
+          {answer.question && <p className="asked">{answer.question}</p>}
           <p className="source-label">Your original words · saved separately</p><blockquote>{answer.original}</blockquote>
           {answer.challenges.map(challenge => <div className="challenge" key={challenge.id}><p><strong>Challenge:</strong> {challenge.question}</p>
             {challenge.reply ? <p><strong>Separate reply:</strong> {challenge.reply}</p> : session.canWrite ? <form onSubmit={async e => { e.preventDefault(); const ok = await run(() => api.reply(session.id, challenge.id, replies[challenge.id] || '')); if (ok) setReplies(current => ({ ...current, [challenge.id]: '' })); }}>

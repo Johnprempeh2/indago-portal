@@ -41,3 +41,5 @@
 .interview .ai-choice button { flex: 1 1 14rem; }
 .interview .processing-line > summary { font-size: .92rem; color: #d4e4dc; }
 .interview .processing-line .link { color: #c8ff00; text-decoration: underline; }
+.interview .asked { color: #c4c8c1; margin: 0 0 1rem; }
+.interview .source-statements { border-left: 3px solid #4ecdc4; margin: .4rem 0 1rem; padding: .3rem 1rem .3rem 2.2rem; background: #1b503933; }

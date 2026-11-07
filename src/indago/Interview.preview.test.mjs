@@ -23,5 +23,9 @@ test('synthetic preview resumes from browser storage without network access', as
     assert.equal(resumed.answers[0].original, 'Exact synthetic first words');
     assert.equal(resumed.status, 'in_progress');
     assert.equal((await makePreviewInterviewApi(storage).list()).sessions.length, 1);
+    // NS-01 move 1: the earlier source statements come next, before client value.
+    await assert.rejects(first.answer(session.id, 'value', 'Too early'), /changed/);
+    const checked = await first.answer(session.id, 'ambition', 'Confirm the first two');
+    assert.equal(checked.answers[1].source_check, true);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });

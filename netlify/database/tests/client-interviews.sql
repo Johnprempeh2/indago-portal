@@ -12,6 +12,28 @@ INSERT INTO indago.client_interview_answers(id,session_id,move,original) VALUES
   ('10000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000001','ambition','First words are immutable');
 INSERT INTO indago.client_interview_challenges(id,answer_id,question) VALUES
   ('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','What evidence would test this?');
+-- NS-01: a move can hold follow-up answers, but a session has one check of the earlier source statements.
+INSERT INTO indago.client_interview_answers(id,session_id,move,original,question,asked_by,ai_reason,ai_covered,source_check) VALUES
+  ('10000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000001','ambition','Confirm the first two',
+   'Which of these earlier statements would you confirm, correct or drop?','guided',NULL,'{ambition}',true),
+  ('10000000-0000-4000-8000-000000000003','00000000-0000-4000-8000-000000000001','ambition','Independence',
+   'Which parts of that are non-negotiable?','AI','Move 1 asks for non-negotiables.','{}',false);
+DO $$ BEGIN
+  BEGIN
+    INSERT INTO indago.client_interview_answers(id,session_id,move,original,source_check) VALUES
+      ('10000000-0000-4000-8000-000000000004','00000000-0000-4000-8000-000000000001','ambition','Again',true);
+    RAISE EXCEPTION 'second source check was accepted';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
+  BEGIN
+    INSERT INTO indago.client_interview_answers(id,session_id,move,original,ai_covered) VALUES
+      ('10000000-0000-4000-8000-000000000005','00000000-0000-4000-8000-000000000001','value','Covered','{nowhere}');
+    RAISE EXCEPTION 'unknown covered move was accepted';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+END $$;
+UPDATE indago.client_interviews SET next_turn = '{"move":"value","question":"Q?","askedBy":"AI"}'
+  WHERE id = '00000000-0000-4000-8000-000000000001';
 DO $$ BEGIN
   BEGIN
     UPDATE indago.client_interview_answers SET original = 'changed';
@@ -34,7 +56,7 @@ END $$;
 SELECT set_config('indago.user_id','interview-facilitator',true);
 DO $$ BEGIN
   IF (SELECT count(*) FROM indago.client_interviews) <> 2 THEN RAISE EXCEPTION 'facilitator cannot review'; END IF;
-  IF (SELECT count(*) FROM indago.client_interview_answers) <> 1 THEN RAISE EXCEPTION 'facilitator cannot read answers'; END IF;
+  IF (SELECT count(*) FROM indago.client_interview_answers) <> 3 THEN RAISE EXCEPTION 'facilitator cannot read answers'; END IF;
 END $$;
 SELECT set_config('indago.user_id','open-access',true);
 SELECT set_config('indago.open_access','on',true);

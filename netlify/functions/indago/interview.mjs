@@ -1,4 +1,4 @@
-import { challengeFor, makeAiDraft, makeDraft, MOVES, proposedOutcomes } from '../../../src/indago/model/interview.mjs';
+import { acceptAiTurn, challengeFor, guidedTurn, makeAiDraft, makeDraft, MAX_QUESTIONS_PER_MOVE, moveAnswers, MOVES, needsSourceCheck, proposedOutcomes, sourceCheckTurn } from '../../../src/indago/model/interview.mjs';
 import { aiConfigured, aiFallbackReason, aiJsonText, askClaude, escapeParticipant, interviewTranscript, logAiFallback, parseAiJson, singleQuestion } from './claude.mjs';
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status,
@@ -13,13 +13,39 @@ async function payload(request) {
 async function load(client, id, userId) {
   const session = (await client.query('SELECT * FROM indago.client_interviews WHERE id = $1', [id])).rows[0];
   if (!session) return null;
-  const answers = (await client.query(`SELECT id, move, original, created_at FROM indago.client_interview_answers
-    WHERE session_id = $1 ORDER BY created_at, id`, [id])).rows;
+  const answers = (await client.query(`SELECT id, move, original, question, asked_by, ai_reason, ai_covered, source_check, created_at
+    FROM indago.client_interview_answers WHERE session_id = $1 ORDER BY created_at, id`, [id])).rows;
   const challenges = (await client.query(`SELECT c.id, c.answer_id, c.question, c.reply, c.created_at
     FROM indago.client_interview_challenges c JOIN indago.client_interview_answers a ON a.id = c.answer_id
     WHERE a.session_id = $1 ORDER BY c.created_at, c.id`, [id])).rows;
-  return { ...session, canWrite: session.owner_id === userId && session.status === 'in_progress', answers: answers.map(answer => ({ ...answer,
-    challenges: challenges.filter(item => item.answer_id === answer.id) })) };
+  const withChallenges = answers.map(answer => ({ ...answer, challenges: challenges.filter(item => item.answer_id === answer.id) }));
+  // The question waiting for an answer: the AI's stored turn, or else the guided turn.
+  const turn = session.status !== 'in_progress' ? null : session.next_turn?.move ? session.next_turn : guidedTurn(withChallenges, session.next_turn?.covered);
+  return { ...session, turn, canWrite: session.owner_id === userId && session.status === 'in_progress', answers: withChallenges };
+}
+
+const askedQuestions = answers => answers.flatMap(answer => [answer.question, ...answer.challenges.map(item => item.question)]).filter(Boolean)
+  .map((question, index) => `${index + 1}. ${question}`).join('\n') || 'none';
+
+// Asks the AI for the next turn after `answers` (the last one just saved). Returns the turn to store, or null to use the guided turn.
+async function nextAiTurn(ask, answers) {
+  const current = answers.at(-1).move;
+  const covered = [...new Set(answers.flatMap(answer => answer.ai_covered || []))];
+  const text = await ask({ system: process.env.INDAGO_AI_QUESTION_PROMPT, input: [
+    `Moves already covered: ${covered.join(', ') || 'none'}`,
+    `Moves with answers: ${[...new Set(answers.map(answer => answer.move))].join(', ')}`,
+    `Current move: ${current} (${moveAnswers(answers, current).length} of at most ${MAX_QUESTIONS_PER_MOVE} questions asked). Ask a follow-up in this move, or choose a move not yet covered.`,
+    'Earlier source statements: the portal shows them to the participant when you leave the ambition move. Do not list them yourself.',
+    `Questions already asked, in order:\n${askedQuestions(answers)}`, '',
+    `Transcript:\n${interviewTranscript(answers)}`, '', 'Ask the next single question.'].join('\n') });
+  if (!text) return null;
+  const raw = parseAiJson(text);
+  const result = acceptAiTurn(raw, answers, current);
+  // NS-01 move 1: the earlier source statements come after the participant's own ambition, before any other move.
+  if (needsSourceCheck(answers) && (result.complete || result.move !== 'ambition')) return { ...sourceCheckTurn('AI'), covered: result.covered };
+  if (result.complete) return { covered: result.covered, reason: result.reason };
+  const question = singleQuestion(raw.question, answers.map(answer => answer.original).join('\n'), result.move === 'boundaries');
+  return { move: result.move, question, askedBy: 'AI', reason: result.reason, covered: result.covered };
 }
 
 export async function handleInterview(request, client, route, userId, facilitator = false, openAccess = false, ask = askClaude, aiAvailable = aiConfigured()) {
@@ -51,6 +77,9 @@ export async function handleInterview(request, client, route, userId, facilitato
       `Processing: ${session.ai_assisted ? `AI-assisted (Claude, Anthropic); AI draft ${session.ai_draft || 'not started'}` : 'guided, no AI'}`, '',
       ...session.answers.flatMap(answer => [
         `${MOVES.find(move => move.id === answer.move)?.title || answer.move} [${answer.id}]`,
+        `Question (${answer.asked_by === 'AI' ? 'AI' : 'guided'}${answer.source_check ? ', earlier source statements to confirm or correct' : ''}): ${answer.question || '(not recorded)'}`,
+        ...(answer.asked_by === 'AI' ? [`AI reason: ${answer.ai_reason || '(none given)'}`] : []),
+        ...(answer.ai_covered?.length ? [`Moves the AI saw as covered before this question: ${answer.ai_covered.join(', ')}`] : []),
         `Client statement: ${answer.original}`,
         ...answer.challenges.flatMap(challenge => [`Challenge: ${challenge.question}`, `Separate reply: ${challenge.reply || '(skipped)'}`]), '',
       ]), `Corrected summary: ${session.corrected_summary || '(not submitted)'}`, '',
@@ -64,29 +93,23 @@ export async function handleInterview(request, client, route, userId, facilitato
   try { body = await payload(request); } catch { return json({ error: 'Invalid request.' }, 400); }
   if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'Invalid request.' }, 400);
   if (parts[2] === 'answers') {
+    const turn = session.turn;
     if (!MOVES.some(move => move.id === body.move) || typeof body.original !== 'string' ||
         !body.original.trim() || body.original.length > 20000) return json({ error: 'Invalid answer.' }, 400);
-    if (body.move === 'convergence') {
+    if (!turn || turn.move !== body.move) return json({ error: 'This question has changed. Reload the page to see the current question.' }, 409);
+    if (turn.move === 'convergence' && turn.askedBy === 'guided') {
       try { proposedOutcomes(body.original); } catch (error) { return json({ error: error.message }, 400); }
     }
-    if (session.answers.some(answer => answer.move === body.move)) return json({ error: 'Original answer is already recorded.' }, 409);
-    const answerId = crypto.randomUUID();
-    await client.query(`INSERT INTO indago.client_interview_answers(id, session_id, move, original)
-      VALUES ($1,$2,$3,$4)`, [answerId, id, body.move, body.original]);
-    const remaining = MOVES.find(move => !session.answers.some(answer => answer.move === move.id) && move.id !== body.move);
-    if (remaining && session.ai_assisted) {
-      let question = null;
-      try {
-        const answers = [...session.answers, { id: answerId, move: body.move, original: body.original, challenges: [] }];
-        const text = await ask({ system: process.env.INDAGO_AI_QUESTION_PROMPT, input: `Moves already covered: ${answers.map(answer => answer.move).join(', ')}\nNext move (the portal asks the moves in order): ${remaining.id}\nQuestions already asked, in order:\n${session.answers.map(answer => MOVES.find(move => move.id === answer.move)?.question).filter(Boolean).join('\n')}\n\nTranscript:\n${interviewTranscript(answers)}\n\nAsk the next single question.` });
-        if (text) {
-          const result = parseAiJson(text);
-          if (result.move !== remaining.id || result.complete !== false || !Array.isArray(result.covered) ||
-            result.covered.some(move => !MOVES.some(item => item.id === move))) throw new Error('AI move invalid.');
-          question = singleQuestion(result.question, answers.map(answer => answer.original).join('\n'), remaining.id === 'boundaries');
-        }
-      } catch (error) { logAiFallback('question', error); /* The saved answer remains available; the guided question is the fallback. */ }
-      await client.query('UPDATE indago.client_interviews SET next_question = $1 WHERE id = $2', [question, id]);
+    const answer = { id: crypto.randomUUID(), move: turn.move, original: body.original, question: turn.question, asked_by: turn.askedBy,
+      ai_reason: turn.askedBy === 'AI' ? turn.reason || null : null, ai_covered: turn.covered || [], source_check: turn.sourceCheck === true, challenges: [] };
+    await client.query(`INSERT INTO indago.client_interview_answers(id, session_id, move, original, question, asked_by, ai_reason, ai_covered, source_check)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [answer.id, id, answer.move, answer.original, answer.question, answer.asked_by, answer.ai_reason, answer.ai_covered, answer.source_check]);
+    const answers = [...session.answers, answer];
+    if (session.ai_assisted) {
+      let next = null;
+      try { next = await nextAiTurn(ask, answers); }
+      catch (error) { logAiFallback('question', error); /* The saved answer remains available; the guided question is the fallback. */ }
+      await client.query('UPDATE indago.client_interviews SET next_turn = $1 WHERE id = $2', [next && JSON.stringify(next), id]);
     }
   } else if (parts[2] === 'challenges') {
     const answer = session.answers.find(item => item.id === body.answerId);
@@ -112,7 +135,8 @@ export async function handleInterview(request, client, route, userId, facilitato
   } else {
     if (typeof body.correctedSummary !== 'string' || !body.correctedSummary.trim() || body.correctedSummary.length > 20000) return json({ error: 'Review your summary first.' }, 400);
     let draft;
-    try { draft = makeDraft(session.answers, body.correctedSummary); } catch (error) { return json({ error: error.message }, 400); }
+    if (session.turn) return json({ error: 'Answer the current question before drafting.' }, 409);
+    try { draft = makeDraft(session.answers, body.correctedSummary, session.next_turn?.covered); } catch (error) { return json({ error: error.message }, 400); }
     // The AI draft takes 25-30 s, longer than the site allows a request, so it runs after submit
     // (indago-draft-background). Until it is done, the guided draft is the saved record.
     await client.query(`UPDATE indago.client_interviews SET corrected_summary = $1, draft = $2, status = 'submitted',
