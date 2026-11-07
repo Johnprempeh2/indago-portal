@@ -34,6 +34,20 @@ export function doneMoves(answers, pendingCovered = []) {
   return done;
 }
 
+// Moves the AI marked covered that no saved answer has yet passed. NS-01 (Touchstone S3): the participant sees
+// these before they are skipped and can choose to answer one. A move counts as covered only once the participant
+// has saved an answer to a turn that showed it, which stores it in that answer's `ai_covered`.
+export const pendingSkips = (answers, covered = []) => {
+  const done = doneMoves(answers);
+  return [...new Set(covered)].filter(id => isMove(id) && id !== 'convergence' && !done.has(id));
+};
+
+// The participant chose to answer a move the AI wanted to skip: its guided question, with the other skips kept.
+export function reopenTurn(answers, covered, id) {
+  if (needsSourceCheck(answers) || !pendingSkips(answers, covered).includes(id)) return null;
+  return { move: id, question: MOVES.find(move => move.id === id).question, askedBy: 'guided', covered: covered.filter(item => item !== id) };
+}
+
 export const needsSourceCheck = answers => moveAnswers(answers, 'ambition').length > 0 && !answers.some(answer => answer.source_check);
 export const sourceCheckTurn = (askedBy = 'guided') => ({ move: 'ambition', question: SOURCE_CHECK[askedBy], askedBy: 'guided', sourceCheck: true });
 

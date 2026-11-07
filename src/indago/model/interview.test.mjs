@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MOVES, acceptAiTurn, answersFor, challengeFor, guidedTurn, makeAiDraft, makeDraft, proposedOutcomes } from './interview.mjs';
+import { MOVES, acceptAiTurn, answersFor, challengeFor, guidedTurn, makeAiDraft, makeDraft, pendingSkips, proposedOutcomes, reopenTurn } from './interview.mjs';
 
 const answers = MOVES.map((move, index) => ({ id: `answer-${index}`, move: move.id,
   original: [
@@ -67,6 +67,18 @@ test('a move the AI saw as covered cites the answer it had just read', () => {
   assert.deepEqual(answersFor([answers[0], answers[1], later], 'economics').map(a => a.id), ['answer-1']);
   assert.deepEqual(answersFor([answers[0], answers[1]], 'economics', ['economics']).map(a => a.id), ['answer-1']);
   assert.deepEqual(answersFor([answers[0], answers[1]], 'convergence', ['convergence']), []);
+});
+
+test('a covered move stays pending until an answer was saved to a turn that showed it (Touchstone S3)', () => {
+  const two = [answers[0], sourceCheck, answers[1]];
+  assert.deepEqual(pendingSkips(two, ['ambition', 'value', 'economics', 'boundaries', 'convergence', 'nowhere']), ['economics', 'boundaries']);
+  // Once the participant answered a turn that showed economics, it is no longer pending.
+  assert.deepEqual(pendingSkips([...two, { ...answers[2], ai_covered: ['economics'] }], ['economics', 'boundaries']), ['boundaries']);
+  assert.deepEqual(reopenTurn(two, ['value', 'economics', 'boundaries'], 'economics'),
+    { move: 'economics', question: MOVES[3].question, askedBy: 'guided', covered: ['value', 'boundaries'] });
+  assert.equal(reopenTurn(two, ['economics'], 'futures'), null, 'only a pending skip can be reopened');
+  assert.equal(reopenTurn(two, ['convergence'], 'convergence'), null);
+  assert.equal(reopenTurn([answers[0]], ['economics'], 'economics'), null, 'the source check still comes first');
 });
 
 test('challenge depends on the answer and prior context', () => {
