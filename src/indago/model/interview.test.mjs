@@ -28,6 +28,12 @@ test('AI draft retains sources, labels hypotheses, and cannot approve a North St
   assert.deepEqual(draft.boundaries[0].sources, [{ move: 'boundaries', answerId: 'answer-4', label: 'client statement' }]);
   assert.equal(draft.summary.status, 'client statement');
   assert.throws(() => makeAiDraft(raw.replace('"answer-3"', '"invented"'), answers, 'Summary'));
+  // Items other than candidates may quote the participant's own words.
+  const quoting = JSON.parse(raw);
+  quoting.boundaries[0].text = 'Experts have the final say; confirm the first source statement';
+  assert.equal(makeAiDraft(JSON.stringify(quoting), answers, 'Summary').boundaries[0].text, 'Experts have the final say; confirm the first source statement');
+  quoting.candidates[0].text = 'The approved North Star';
+  assert.throws(() => makeAiDraft(JSON.stringify(quoting), answers, 'Summary'), /claims approval/);
 });
 
 const sourceCheck = { id: 'answer-s', move: 'ambition', original: 'Confirm the first two', source_check: true };

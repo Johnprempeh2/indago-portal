@@ -150,15 +150,19 @@ export function makeAiDraft(raw, answers, correctedSummary) {
     if (!Array.isArray(items) || items.length < min || items.length > max) throw new Error('AI draft incomplete.');
     return items.map(value => {
       const text = value?.[field];
-      if (typeof text !== 'string' || !text.trim() || text.length > 1000 || /\b(?:approved|confirmed|final)\b/i.test(text)) throw new Error('AI draft invalid.');
+      if (typeof text !== 'string' || !text.trim() || text.length > 1000) throw new Error('AI draft invalid.');
       return { text: text.trim(), sources: sourcesFor(value.sources) };
     });
   };
+  // A candidate North Star must not claim approval. Other items may quote the participant ("confirm the first
+  // statement", "the final say"), and the server sets every status field itself.
+  const approvalClaim = /\b(?:approved|confirmed|final)\b/i;
   const candidates = entries(item.candidates, 2, 3).map((value, i) => ({
     ...value, framing: String(item.candidates[i].framing || `Candidate ${i + 1}`).slice(0, 80),
     rationale: String(item.candidates[i].rationale || '').slice(0, 300),
     status: 'Draft: pending Gordon’s confirmation', provenance: 'Greatstone hypothesis',
   }));
+  if (item.candidates.some(value => approvalClaim.test(`${value.text} ${value.rationale || ''}`))) throw new Error('AI draft claims approval.');
   const outcomes = entries(item.outcomes, 3, 5).map((value, i) => ({ ...value,
     target: String(item.outcomes[i].target || 'not stated').slice(0, 200),
     horizon: String(item.outcomes[i].horizon || 'not stated').slice(0, 200),
