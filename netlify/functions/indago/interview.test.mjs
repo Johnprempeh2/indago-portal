@@ -109,7 +109,7 @@ test('AI draft output is recorded as a sourced proposal even when model claims a
   });
   session = await (await handleInterview(post({ correctedSummary: 'My corrected summary' }), client,
     `interviews/${session.id}/submit`, 'client-one', false, false, async request => { draftRequest = request; return modelOutput; })).json();
-  assert.equal(draftRequest.timeoutMs, 25000);
+  assert.equal(draftRequest.timeoutMs, 45000);
   assert.equal(session.draft.processing, 'AI-assisted draft, human review required');
   assert.equal(session.draft.approvalStatus, 'Draft');
   assert.equal(session.draft.candidates[0].sources[0].answerId, session.answers[0].id);

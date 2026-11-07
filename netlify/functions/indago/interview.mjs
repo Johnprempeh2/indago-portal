@@ -111,7 +111,7 @@ export async function handleInterview(request, client, route, userId, facilitato
     let draft;
     try { draft = makeDraft(session.answers, body.correctedSummary); } catch (error) { return json({ error: error.message }, 400); }
     try {
-      const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 3000, timeoutMs: 25000,
+      const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 3000, timeoutMs: 45000, // Measured 24.7 s on preview; Netlify allows 60 s.
         input: `<corrected_summary>${escapeParticipant(body.correctedSummary)}</corrected_summary>\n\nTranscript:\n${interviewTranscript(session.answers)}\n\nDraft the record.` });
       if (text) draft = makeAiDraft(text, session.answers, body.correctedSummary);
     } catch (error) { logAiFallback('draft', error); /* The guided draft remains available for facilitator review. */ }
