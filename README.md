@@ -44,6 +44,10 @@ The output contains real client material. Keep it outside the repository and app
 
 The browser polls every five seconds while visible. Saves use record versions to detect another editor's change. CSV export escapes spreadsheet formulas. The database is the master copy. A two-user live check and private address setup follow the security review. Do not add DNS or load real data from this branch.
 
+## Live North Star interviewer (GRE-3641)
+
+Migration `0010_interview_ai` stores the next contextual question so a participant can resume without another model call. Roll back with `0010_interview_ai/rollback.sql`; this removes stored questions, while original answers, separate challenges and submitted drafts remain. The AI route is off unless `INDAGO_AI_INTERVIEW=true`, a server-only `ANTHROPIC_API_KEY` (or `Anthropic_API_Key`, the name on the preview site), and approved `INDAGO_AI_QUESTION_PROMPT`, `INDAGO_AI_CHALLENGE_PROMPT` and `INDAGO_AI_DRAFT_PROMPT` function settings are all present. The model is `claude-sonnet-5`. Failed or invalid model responses use the guided question, challenge or draft. No key or prompt goes into the browser build. Do not enable this route for client use until the participant notice, named sign-in, security review and release approval are complete.
+
 ## Preview sign-in
 
 The Editor and Viewer password route is off by default. It works only on the separate sample-data site at `https://greatstone-indago-preview.netlify.app`, with `INDAGO_TEST_LOGIN_HOST=greatstone-indago-preview.netlify.app`. Public sign-up and password reset remain closed. Normal invited email-link sign-in remains available.
