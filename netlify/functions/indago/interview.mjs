@@ -1,5 +1,5 @@
 import { challengeFor, makeAiDraft, makeDraft, MOVES, proposedOutcomes } from '../../../src/indago/model/interview.mjs';
-import { askClaude, escapeParticipant, interviewTranscript, parseAiJson, singleQuestion } from './claude.mjs';
+import { askClaude, escapeParticipant, interviewTranscript, logAiFallback, parseAiJson, singleQuestion } from './claude.mjs';
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status,
   headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -82,7 +82,7 @@ export async function handleInterview(request, client, route, userId, facilitato
             result.covered.some(move => !MOVES.some(item => item.id === move))) throw new Error('AI move invalid.');
           question = singleQuestion(result.question, answers.map(answer => answer.original).join('\n'), remaining.id === 'boundaries');
         }
-      } catch { /* The saved answer remains available; the guided question is the fallback. */ }
+      } catch (error) { logAiFallback('question', error); /* The saved answer remains available; the guided question is the fallback. */ }
       await client.query('UPDATE indago.client_interviews SET next_question = $1 WHERE id = $2', [question, id]);
     }
   } else if (parts[2] === 'challenges') {
@@ -97,7 +97,7 @@ export async function handleInterview(request, client, route, userId, facilitato
         if (result.answerId !== answer.id || !['client outcome', 'counterexample', 'economics', 'competitive difference', 'feasibility', 'trade-off', 'evidence'].includes(result.angle)) throw new Error('AI challenge invalid.');
         question = singleQuestion(result.question, session.answers.map(item => item.original).join('\n'));
       }
-    } catch { /* Keep the guided challenge. */ }
+    } catch (error) { logAiFallback('challenge', error); /* Keep the guided challenge. */ }
     await client.query(`INSERT INTO indago.client_interview_challenges(id, answer_id, question)
       VALUES ($1,$2,$3)`, [crypto.randomUUID(), answer.id, question]);
   } else if (parts[2] === 'replies') {
@@ -114,7 +114,7 @@ export async function handleInterview(request, client, route, userId, facilitato
       const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 3000, temperature: 0.5,
         input: `<corrected_summary>${escapeParticipant(body.correctedSummary)}</corrected_summary>\n\nTranscript:\n${interviewTranscript(session.answers)}\n\nDraft the record.` });
       if (text) draft = makeAiDraft(text, session.answers, body.correctedSummary);
-    } catch { /* The guided draft remains available for facilitator review. */ }
+    } catch (error) { logAiFallback('draft', error); /* The guided draft remains available for facilitator review. */ }
     await client.query(`UPDATE indago.client_interviews SET corrected_summary = $1, draft = $2, status = 'submitted', updated_at = now()
       WHERE id = $3`, [body.correctedSummary, JSON.stringify(draft), id]);
   }

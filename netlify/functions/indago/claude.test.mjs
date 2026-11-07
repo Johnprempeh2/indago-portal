@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { anthropicKey, askClaude, interviewTranscript, parseAiJson, singleQuestion } from './claude.mjs';
+import { aiFallbackReason, anthropicKey, askClaude, interviewTranscript, parseAiJson, singleQuestion } from './claude.mjs';
 
 test('server key reads ANTHROPIC_API_KEY first, then Anthropic_API_Key', () => {
   assert.equal(anthropicKey({ ANTHROPIC_API_KEY: 'standard', Anthropic_API_Key: 'preview' }), 'standard');
@@ -47,4 +47,16 @@ test('participant text stays inside escaped data tags and leading questions fail
   assert.equal(singleQuestion('Which client decision would change?'), 'Which client decision would change?');
   assert.deepEqual(parseAiJson('{"move":"value"}'), { move: 'value' });
   assert.throws(() => parseAiJson('not JSON'));
+});
+
+test('fallback reason names the status or error class, never model or participant text', async () => {
+  await assert.rejects(askClaude({ system: 'Approved', input: {} }, {
+    enabled: true, key: 'test', fetcher: async () => new Response('{}', { status: 401 }),
+  }), /^Error: AI service unavailable \(401\)\.$/);
+  assert.equal(aiFallbackReason(new Error('AI service unavailable (401).')), 'AI service unavailable (401).');
+  assert.equal(aiFallbackReason(new Error('AI draft invalid.')), 'AI draft invalid.');
+  let parseError;
+  try { parseAiJson('Participant said: my secret plan'); } catch (error) { parseError = error; }
+  assert.equal(aiFallbackReason(parseError), 'SyntaxError');
+  assert.equal(aiFallbackReason(new Error('test-key leaked in message')), 'Error');
 });

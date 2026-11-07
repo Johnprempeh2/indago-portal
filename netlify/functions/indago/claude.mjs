@@ -10,7 +10,10 @@ export async function askClaude({ system, input, maxTokens = 400, temperature = 
     Boolean(process.env.INDAGO_AI_QUESTION_PROMPT && process.env.INDAGO_AI_CHALLENGE_PROMPT && process.env.INDAGO_AI_DRAFT_PROMPT),
   fetcher = fetch,
 } = {}) {
-  if (!enabled || !key || !system) return null;
+  if (!enabled || !key || !system) {
+    console.info('Indago AI off', JSON.stringify({ enabled, key: Boolean(key), prompt: Boolean(system) }));
+    return null;
+  }
   const response = await fetcher(ENDPOINT, {
     method: 'POST',
     headers: {
@@ -24,13 +27,21 @@ export async function askClaude({ system, input, maxTokens = 400, temperature = 
     }),
     signal: AbortSignal.timeout(15000),
   });
-  if (!response.ok) throw new Error('AI service unavailable.');
+  if (!response.ok) throw new Error(`AI service unavailable (${response.status}).`);
   const data = await response.json();
   if (data.stop_reason !== 'end_turn') throw new Error('AI response incomplete.');
   const content = data.content?.filter(part => part.type === 'text').map(part => part.text).join('\n').trim();
   if (!content) throw new Error('AI response empty.');
   return content;
 }
+
+// Logs only our own fixed messages or the error class, never model or participant text.
+export function aiFallbackReason(error) {
+  const message = String(error?.message || '');
+  return /^AI [a-z ]+(?: \(\d{3}\))?\.$/.test(message) ? message : String(error?.name || 'Error');
+}
+
+export const logAiFallback = (step, error) => console.warn('Indago AI fallback', step, aiFallbackReason(error));
 
 export function parseAiJson(text) {
   const value = JSON.parse(text);
