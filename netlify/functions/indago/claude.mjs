@@ -1,12 +1,13 @@
 // Server only. The caller supplies approved instructions; participant text is data.
 const ENDPOINT = 'https://api.anthropic.com/v1/messages';
 
-// The preview site stores the key as `Anthropic_API_Key`; prefer the standard name when set.
-export const anthropicKey = (env = process.env) => env.ANTHROPIC_API_KEY || env.Anthropic_API_Key || '';
+// The preview site stores the key as `Anthropic_API_Key`. Read it first: when the standard name is not
+// set on the site, Netlify fills `ANTHROPIC_API_KEY` with its AI Gateway token, which Anthropic rejects.
+export const anthropicKey = (env = process.env) => env.Anthropic_API_Key || env.ANTHROPIC_API_KEY || '';
 
 // Describes the key without revealing it, so a rejected key can be traced to its setting.
 export function keyShape(env = process.env) {
-  const name = env.ANTHROPIC_API_KEY ? 'ANTHROPIC_API_KEY' : env.Anthropic_API_Key ? 'Anthropic_API_Key' : null;
+  const name = env.Anthropic_API_Key ? 'Anthropic_API_Key' : env.ANTHROPIC_API_KEY ? 'ANTHROPIC_API_KEY' : null;
   const value = name ? env[name] : '';
   return { name, length: value.length, prefix: value.startsWith('sk-ant-'), trimmed: value === value.trim(), quoted: /^["']|["']$/.test(value) };
 }
