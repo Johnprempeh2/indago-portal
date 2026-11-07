@@ -12,7 +12,7 @@ export function keyShape(env = process.env) {
   return { name, length: value.length, prefix: value.startsWith('sk-ant-'), trimmed: value === value.trim(), quoted: /^["']|["']$/.test(value) };
 }
 
-export async function askClaude({ system, input, maxTokens = 400, temperature = 0.3 }, {
+export async function askClaude({ system, input, maxTokens = 400 }, {
   key = anthropicKey(),
   enabled = process.env.INDAGO_AI_INTERVIEW === 'true' &&
     Boolean(process.env.INDAGO_AI_QUESTION_PROMPT && process.env.INDAGO_AI_CHALLENGE_PROMPT && process.env.INDAGO_AI_DRAFT_PROMPT),
@@ -30,7 +30,8 @@ export async function askClaude({ system, input, maxTokens = 400, temperature = 
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-5', max_tokens: maxTokens, temperature, system,
+      // No temperature: claude-sonnet-5 rejects it as deprecated (400).
+      model: 'claude-sonnet-5', max_tokens: maxTokens, system,
       messages: [{ role: 'user', content: typeof input === 'string' ? input : JSON.stringify(input) }],
     }),
     signal: AbortSignal.timeout(15000),

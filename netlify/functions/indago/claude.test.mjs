@@ -37,6 +37,7 @@ test('AI sends data and key only from server and accepts one complete question',
   assert.equal(sent.url, 'https://api.anthropic.com/v1/messages');
   assert.equal(sent.options.headers['x-api-key'], 'test-key');
   assert.equal(JSON.parse(sent.options.body).model, 'claude-sonnet-5');
+  assert.equal('temperature' in JSON.parse(sent.options.body), false);
   assert.equal(JSON.parse(sent.options.body).messages[0].content, '{"answer":"A client statement"}');
 });
 
