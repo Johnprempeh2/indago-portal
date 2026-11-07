@@ -101,7 +101,7 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
       {session && <>
         <p className="progress" aria-live="polite">{session.status === 'submitted' ? 'Draft recorded' : `Move ${nextInfo ? MOVES.indexOf(nextInfo) + 1 : 6} of 6`} · IND-NS-001 · G2</p>
         {!preview && <details className="interview-details processing-line"><summary>{session.ai_assisted ? AI_LINE : GUIDED_LINE} <span className="link">How your answers are handled</span></summary><NoticeList /></details>}
-        {next && session.canWrite && <form className="current" onSubmit={async e => { e.preventDefault(); const ok = await run(() => api.answer(session.id, next.id, text)); if (ok) setText(''); }}>
+        {next && session.canWrite && <form className="current" onSubmit={async e => { e.preventDefault(); const ok = await run(() => api.answer(session.id, next.move, text)); if (ok) setText(''); }}>
           <p className="source-label">{nextInfo.title}</p><h2 tabIndex="-1" ref={questionHeading}>{next.question}</h2>
           {next.sourceCheck && <><p className="source-label">Earlier statements to check. They are not facts.</p><ul className="source-statements">{SOURCE_STATEMENTS.map(item => <li key={item}>{item}</li>)}</ul></>}
           <label htmlFor="answer">Your response</label><textarea id="answer" value={text} required maxLength={20000} rows="7" onChange={e => setText(e.target.value)} />
