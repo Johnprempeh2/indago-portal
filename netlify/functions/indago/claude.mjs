@@ -4,6 +4,13 @@ const ENDPOINT = 'https://api.anthropic.com/v1/messages';
 // The preview site stores the key as `Anthropic_API_Key`; prefer the standard name when set.
 export const anthropicKey = (env = process.env) => env.ANTHROPIC_API_KEY || env.Anthropic_API_Key || '';
 
+// Describes the key without revealing it, so a rejected key can be traced to its setting.
+export function keyShape(env = process.env) {
+  const name = env.ANTHROPIC_API_KEY ? 'ANTHROPIC_API_KEY' : env.Anthropic_API_Key ? 'Anthropic_API_Key' : null;
+  const value = name ? env[name] : '';
+  return { name, length: value.length, prefix: value.startsWith('sk-ant-'), trimmed: value === value.trim(), quoted: /^["']|["']$/.test(value) };
+}
+
 export async function askClaude({ system, input, maxTokens = 400, temperature = 0.3 }, {
   key = anthropicKey(),
   enabled = process.env.INDAGO_AI_INTERVIEW === 'true' &&
@@ -27,6 +34,7 @@ export async function askClaude({ system, input, maxTokens = 400, temperature = 
     }),
     signal: AbortSignal.timeout(15000),
   });
+  if (response.status === 401) console.warn('Indago AI key shape', JSON.stringify(keyShape()));
   if (!response.ok) throw new Error(`AI service unavailable (${response.status}).`);
   const data = await response.json();
   if (data.stop_reason !== 'end_turn') throw new Error('AI response incomplete.');

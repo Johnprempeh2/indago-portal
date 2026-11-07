@@ -1,12 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { aiFallbackReason, anthropicKey, askClaude, interviewTranscript, parseAiJson, singleQuestion } from './claude.mjs';
+import { aiFallbackReason, anthropicKey, askClaude, interviewTranscript, keyShape, parseAiJson, singleQuestion } from './claude.mjs';
 
 test('server key reads ANTHROPIC_API_KEY first, then Anthropic_API_Key', () => {
   assert.equal(anthropicKey({ ANTHROPIC_API_KEY: 'standard', Anthropic_API_Key: 'preview' }), 'standard');
   assert.equal(anthropicKey({ Anthropic_API_Key: 'preview' }), 'preview');
   assert.equal(anthropicKey({ ANTHROPIC_API_KEY: '', Anthropic_API_Key: 'preview' }), 'preview');
   assert.equal(anthropicKey({ PIA_KEY: 'other' }), '');
+});
+
+test('key shape names the setting and its form, never the value', () => {
+  const secret = 'sk-ant-api03-secretvalue';
+  const shape = keyShape({ ANTHROPIC_API_KEY: '', Anthropic_API_Key: secret });
+  assert.deepEqual(shape, { name: 'Anthropic_API_Key', length: secret.length, prefix: true, trimmed: true, quoted: false });
+  assert.ok(!JSON.stringify(shape).includes('secret'));
+  assert.deepEqual(keyShape({ ANTHROPIC_API_KEY: '"pasted"\n' }), { name: 'ANTHROPIC_API_KEY', length: 9, prefix: false, trimmed: false, quoted: true });
+  assert.deepEqual(keyShape({}), { name: null, length: 0, prefix: false, trimmed: true, quoted: false });
 });
 
 test('AI is off without a server key, feature flag, and approved instructions', async () => {
