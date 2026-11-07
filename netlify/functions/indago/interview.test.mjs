@@ -73,6 +73,7 @@ test('next AI question uses answer context, and a failed call keeps the guided p
   assert.equal(session.next_question, 'Which client decision would change first?');
   assert.match(seen[0].input, /Client decisions improve/);
   assert.match(seen[0].input, /participant_answer/);
+  assert.match(seen[0].input, /Next move \(the portal asks the moves in order\): value/);
   session = await (await handleInterview(post({ move: 'value', original: 'Better decisions' }), client,
     `interviews/${session.id}/answers`, 'client-one', false, false, async () => { throw new Error('provider down'); })).json();
   assert.equal(session.next_question, null);
@@ -100,13 +101,15 @@ test('AI draft output is recorded as a sourced proposal even when model claims a
       `interviews/${session.id}/answers`, 'client-one')).json();
   }
   const item = (text, sources) => ({ text, sources });
+  let draftRequest;
   const modelOutput = JSON.stringify({ approvalStatus: 'Approved',
     candidates: [item('Candidate one', [session.answers[0].id]), item('Candidate two', [session.answers[1].id])],
     outcomes: [item('Outcome one', [session.answers[5].id]), item('Outcome two', [session.answers[5].id]), item('Outcome three', [session.answers[5].id])],
     boundaries: [item('Experts decide', [session.answers[4].id])], hypotheses: [{ question: 'Test demand', sources: [session.answers[3].id] }],
   });
   session = await (await handleInterview(post({ correctedSummary: 'My corrected summary' }), client,
-    `interviews/${session.id}/submit`, 'client-one', false, false, async () => modelOutput)).json();
+    `interviews/${session.id}/submit`, 'client-one', false, false, async request => { draftRequest = request; return modelOutput; })).json();
+  assert.equal(draftRequest.timeoutMs, 25000);
   assert.equal(session.draft.processing, 'AI-assisted draft, human review required');
   assert.equal(session.draft.approvalStatus, 'Draft');
   assert.equal(session.draft.candidates[0].sources[0].answerId, session.answers[0].id);

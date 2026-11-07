@@ -75,7 +75,7 @@ export async function handleInterview(request, client, route, userId, facilitato
       let question = null;
       try {
         const answers = [...session.answers, { id: answerId, move: body.move, original: body.original, challenges: [] }];
-        const text = await ask({ system: process.env.INDAGO_AI_QUESTION_PROMPT, input: `Moves already covered: ${answers.map(answer => answer.move).join(', ')}\nQuestions already asked, in order:\n${session.answers.map(answer => MOVES.find(move => move.id === answer.move)?.question).filter(Boolean).join('\n')}\n\nTranscript:\n${interviewTranscript(answers)}\n\nAsk the next single question.` });
+        const text = await ask({ system: process.env.INDAGO_AI_QUESTION_PROMPT, input: `Moves already covered: ${answers.map(answer => answer.move).join(', ')}\nNext move (the portal asks the moves in order): ${remaining.id}\nQuestions already asked, in order:\n${session.answers.map(answer => MOVES.find(move => move.id === answer.move)?.question).filter(Boolean).join('\n')}\n\nTranscript:\n${interviewTranscript(answers)}\n\nAsk the next single question.` });
         if (text) {
           const result = parseAiJson(text);
           if (result.move !== remaining.id || result.complete !== false || !Array.isArray(result.covered) ||
@@ -111,7 +111,7 @@ export async function handleInterview(request, client, route, userId, facilitato
     let draft;
     try { draft = makeDraft(session.answers, body.correctedSummary); } catch (error) { return json({ error: error.message }, 400); }
     try {
-      const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 3000,
+      const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 3000, timeoutMs: 25000,
         input: `<corrected_summary>${escapeParticipant(body.correctedSummary)}</corrected_summary>\n\nTranscript:\n${interviewTranscript(session.answers)}\n\nDraft the record.` });
       if (text) draft = makeAiDraft(text, session.answers, body.correctedSummary);
     } catch (error) { logAiFallback('draft', error); /* The guided draft remains available for facilitator review. */ }

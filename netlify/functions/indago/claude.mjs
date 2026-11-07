@@ -12,7 +12,7 @@ export function keyShape(env = process.env) {
   return { name, length: value.length, prefix: value.startsWith('sk-ant-'), trimmed: value === value.trim(), quoted: /^["']|["']$/.test(value) };
 }
 
-export async function askClaude({ system, input, maxTokens = 400 }, {
+export async function askClaude({ system, input, maxTokens = 800, timeoutMs = 15000 }, {
   key = anthropicKey(),
   enabled = process.env.INDAGO_AI_INTERVIEW === 'true' &&
     Boolean(process.env.INDAGO_AI_QUESTION_PROMPT && process.env.INDAGO_AI_CHALLENGE_PROMPT && process.env.INDAGO_AI_DRAFT_PROMPT),
@@ -34,7 +34,7 @@ export async function askClaude({ system, input, maxTokens = 400 }, {
       model: 'claude-sonnet-5', max_tokens: maxTokens, system,
       messages: [{ role: 'user', content: typeof input === 'string' ? input : JSON.stringify(input) }],
     }),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (response.status === 401) console.warn('Indago AI key shape', JSON.stringify(keyShape()));
   if (!response.ok) throw new Error(`AI service unavailable (${response.status}).`);
