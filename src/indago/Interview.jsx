@@ -56,6 +56,22 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
   }
   useEffect(() => { if (ready && !summary) setSummary(session.corrected_summary || suggestedSummary); }, [ready, session?.id]);
   useEffect(() => { if (session?.canWrite) questionHeading.current?.focus(); }, [next?.id, ready, session?.id]);
+  const aiDrafting = session?.status === 'submitted' && ['pending', 'running'].includes(session.ai_draft);
+  const [draftWaitOver, setDraftWaitOver] = useState(false);
+  useEffect(() => {
+    // The AI draft is written after submit. Start it (repeat starts are ignored by the server), then reload every 4 s for up to 3 minutes.
+    if (!aiDrafting || !api.draft) return;
+    let active = true;
+    let tries = 0;
+    setDraftWaitOver(false);
+    if (session.ai_draft === 'pending') api.draft(session.id).catch(() => {});
+    const timer = setInterval(async () => {
+      tries += 1;
+      if (tries > 45) { clearInterval(timer); if (active) setDraftWaitOver(true); return; }
+      try { const result = await api.get(session.id); if (active && !['pending', 'running'].includes(result.ai_draft)) { clearInterval(timer); setSession(result); } } catch { /* Try again on the next tick. */ }
+    }, 4000);
+    return () => { active = false; clearInterval(timer); };
+  }, [aiDrafting, session?.id]);
   return <main className="interview">
     <header className="interview-head"><p className="eyebrow">Greatstone International · Indago Deep Dive™</p><button type="button" className="quiet" onClick={exit}>Return to portal</button></header>
     <div className="interview-wrap">
@@ -95,6 +111,7 @@ export default function Interview({ api, preview = false, onExit = () => {} }) {
         </form>}
         {!session.canWrite && session.status === 'in_progress' && <p className="notice">This session is still in progress. Only its participant can add answers or submit a draft.</p>}
         {session.status === 'submitted' && <section className="current"><h2>Draft recorded for review</h2><p>These are proposals. Gordon has not confirmed the exact wording.</p>
+          <div role="status">{(aiDrafting || session.ai_draft === 'failed') && <p className="notice">{aiDrafting ? (draftWaitOver ? 'The AI draft is taking longer than expected. Your guided draft below is saved. Reload this page later to see the AI draft.' : 'The AI is writing your draft. This takes about 30 seconds. Your guided draft below is already saved.') : 'The AI draft could not be written. Your guided draft below is saved for review.'}</p>}</div>
           <p className="source-label">Your corrected summary</p><p className="prewrap">{session.corrected_summary}</p>
           <h3>Draft North Star candidates</h3><ol>{session.draft?.candidates?.map((candidate, index) => <li key={index}><strong>{candidate.framing}</strong><p>{candidate.text}</p><small>{candidate.status} · {candidate.provenance} · Sources: <SourceLinks sources={candidate.sources} /></small></li>)}</ol>
           <h3>Proposed outcomes</h3><ul>{session.draft?.outcomes?.map((outcome, i) => <li key={i}>{outcome.text} <small>({outcome.status}; <SourceLinks sources={outcome.sources} />)</small></li>)}</ul>

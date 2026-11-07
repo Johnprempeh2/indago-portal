@@ -48,7 +48,7 @@ export async function handleInterview(request, client, route, userId, facilitato
   if (request.method === 'GET' && parts[2] === 'export' && parts.length === 3) {
     if (!facilitator) return json({ error: 'Facilitator invitation required.' }, 403);
     const text = [`North Star interview | ${session.record_id} | ${session.gate}`, `Status: ${session.status}`,
-      `Processing: ${session.ai_assisted ? 'AI-assisted (Claude, Anthropic)' : 'guided, no AI'}`, '',
+      `Processing: ${session.ai_assisted ? `AI-assisted (Claude, Anthropic); AI draft ${session.ai_draft || 'not started'}` : 'guided, no AI'}`, '',
       ...session.answers.flatMap(answer => [
         `${MOVES.find(move => move.id === answer.move)?.title || answer.move} [${answer.id}]`,
         `Client statement: ${answer.original}`,
@@ -113,19 +113,37 @@ export async function handleInterview(request, client, route, userId, facilitato
     if (typeof body.correctedSummary !== 'string' || !body.correctedSummary.trim() || body.correctedSummary.length > 20000) return json({ error: 'Review your summary first.' }, 400);
     let draft;
     try { draft = makeDraft(session.answers, body.correctedSummary); } catch (error) { return json({ error: error.message }, 400); }
-    if (session.ai_assisted) try {
-      // The preview site returns 504 at about 30 s, so stop at 22 s and keep the guided draft.
-      // Live drafts take 25-30 s; GRE-3641 tracks moving the AI draft out of the request.
-      const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 4500, timeoutMs: 22000,
-        input: `<corrected_summary>${escapeParticipant(body.correctedSummary)}</corrected_summary>\n\nTranscript:\n${interviewTranscript(session.answers)}\n\nDraft the record.` });
-      if (text) draft = makeAiDraft(text, session.answers, body.correctedSummary);
-    } catch (error) {
-      logAiFallback('draft', error);
-      // The guided draft remains available for facilitator review; record why, as our own fixed text only.
-      draft.aiFallbackReason = aiFallbackReason(error);
-    }
-    await client.query(`UPDATE indago.client_interviews SET corrected_summary = $1, draft = $2, status = 'submitted', updated_at = now()
-      WHERE id = $3`, [body.correctedSummary, JSON.stringify(draft), id]);
+    // The AI draft takes 25-30 s, longer than the site allows a request, so it runs after submit
+    // (indago-draft-background). Until it is done, the guided draft is the saved record.
+    await client.query(`UPDATE indago.client_interviews SET corrected_summary = $1, draft = $2, status = 'submitted',
+      ai_draft = $3, updated_at = now() WHERE id = $4`, [body.correctedSummary, JSON.stringify(draft), session.ai_assisted ? 'pending' : null, id]);
   }
   return json(await load(client, id, userId));
+}
+
+// Runs in the background function after submit. `transaction(work)` runs work(client) in its own
+// committed transaction, so the slow AI call holds no database transaction open.
+export async function writeAiDraft(id, userId, transaction, ask = askClaude) {
+  const claimed = await transaction(async client => {
+    const result = await client.query(`UPDATE indago.client_interviews SET ai_draft = 'running'
+      WHERE id = $1 AND owner_id = $2 AND status = 'submitted' AND ai_draft = 'pending' RETURNING id`, [id, userId]);
+    return result.rows.length ? load(client, id, userId) : null;
+  });
+  if (!claimed?.answers) return 'skipped';
+  let draft = claimed.draft;
+  let outcome = 'failed';
+  try {
+    const text = await ask({ system: process.env.INDAGO_AI_DRAFT_PROMPT, maxTokens: 4500, timeoutMs: 120000,
+      input: `<corrected_summary>${escapeParticipant(claimed.corrected_summary)}</corrected_summary>\n\nTranscript:\n${interviewTranscript(claimed.answers)}\n\nDraft the record.` });
+    if (!text) throw new Error('AI service off.');
+    draft = makeAiDraft(text, claimed.answers, claimed.corrected_summary);
+    outcome = 'done';
+  } catch (error) {
+    logAiFallback('draft', error);
+    // The guided draft stays the record; record why, as our own fixed text only.
+    draft = { ...claimed.draft, aiFallbackReason: aiFallbackReason(error) };
+  }
+  await transaction(client => client.query(`UPDATE indago.client_interviews SET draft = $1, ai_draft = $2, updated_at = now()
+    WHERE id = $3 AND ai_draft = 'running'`, [JSON.stringify(draft), outcome, id]));
+  return outcome;
 }

@@ -41,5 +41,26 @@ SELECT set_config('indago.open_access','on',true);
 DO $$ BEGIN
   IF (SELECT count(*) FROM indago.client_interviews) <> 0 THEN RAISE EXCEPTION 'open access read interviews'; END IF;
 END $$;
+SELECT set_config('indago.open_access','',true);
+SELECT set_config('indago.user_id','interview-one',true);
+UPDATE indago.client_interviews SET status = 'submitted', ai_draft = 'pending', draft = '{}'
+  WHERE id = '00000000-0000-4000-8000-000000000001';
+DO $$ BEGIN
+  UPDATE indago.client_interviews SET ai_draft = 'running'
+    WHERE id = '00000000-0000-4000-8000-000000000001' AND ai_draft = 'pending';
+  IF NOT FOUND THEN RAISE EXCEPTION 'owner cannot claim the AI draft'; END IF;
+  UPDATE indago.client_interviews SET draft = '{"processing":"AI"}', ai_draft = 'done'
+    WHERE id = '00000000-0000-4000-8000-000000000001' AND ai_draft = 'running';
+  IF NOT FOUND THEN RAISE EXCEPTION 'owner cannot write the AI draft'; END IF;
+  UPDATE indago.client_interviews SET draft = '{}' WHERE id = '00000000-0000-4000-8000-000000000001';
+  IF FOUND THEN RAISE EXCEPTION 'finished draft was editable'; END IF;
+END $$;
+SELECT set_config('indago.user_id','interview-two',true);
+UPDATE indago.client_interviews SET status = 'submitted', draft = '{}' WHERE id = '00000000-0000-4000-8000-000000000002';
+DO $$ BEGIN
+  UPDATE indago.client_interviews SET ai_draft = 'running', draft = '{"processing":"AI"}'
+    WHERE id = '00000000-0000-4000-8000-000000000002';
+  IF FOUND THEN RAISE EXCEPTION 'guided submitted session was editable'; END IF;
+END $$;
 ROLLBACK;
-SELECT 'Client interview invitation, ownership, facilitator and verbatim checks passed' AS result;
+SELECT 'Client interview invitation, ownership, facilitator, verbatim and AI draft checks passed' AS result;

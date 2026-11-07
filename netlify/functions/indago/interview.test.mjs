@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handleInterview } from './interview.mjs';
+import { handleInterview, writeAiDraft } from './interview.mjs';
 import { MOVES } from '../../../src/indago/model/interview.mjs';
 
 function memoryClient() {
@@ -19,7 +19,9 @@ function memoryClient() {
       if (sql.startsWith('UPDATE indago.client_interviews SET next_question')) { sessions.get(args[1]).next_question = args[0]; return { rows: [] }; }
       if (sql.startsWith('INSERT INTO indago.client_interview_challenges')) { challenges.push({ id: args[0], answer_id: args[1], question: args[2], reply: '' }); return { rows: [] }; }
       if (sql.startsWith('UPDATE indago.client_interview_challenges')) { const c = challenges.find(c => c.id === args[1] && !c.reply); if (c) c.reply = args[0]; return { rows: c ? [{ id: c.id }] : [] }; }
-      if (sql.startsWith('UPDATE indago.client_interviews')) { const s = sessions.get(args[2]); s.corrected_summary = args[0]; s.draft = JSON.parse(args[1]); s.status = 'submitted'; return { rows: [] }; }
+      if (sql.startsWith("UPDATE indago.client_interviews SET ai_draft = 'running'")) { const s = sessions.get(args[0]); if (!s || s.owner_id !== args[1] || s.status !== 'submitted' || s.ai_draft !== 'pending') return { rows: [] }; s.ai_draft = 'running'; return { rows: [{ id: s.id }] }; }
+      if (sql.startsWith('UPDATE indago.client_interviews SET draft = $1, ai_draft')) { const s = sessions.get(args[2]); if (s.ai_draft === 'running') { s.draft = JSON.parse(args[0]); s.ai_draft = args[1]; } return { rows: [] }; }
+      if (sql.startsWith('UPDATE indago.client_interviews')) { const s = sessions.get(args[3]); s.corrected_summary = args[0]; s.draft = JSON.parse(args[1]); s.ai_draft = args[2]; s.status = 'submitted'; return { rows: [] }; }
       throw new Error(`Unexpected query: ${sql.slice(0, 60)}`);
     },
   };
@@ -93,14 +95,30 @@ test('AI challenge keeps the original answer and stores the follow-up separately
   assert.equal(session.answers[0].challenges[0].question, 'What would disprove that view?');
 });
 
-test('AI draft output is recorded as a sourced proposal even when model claims approval', async () => {
-  const client = memoryClient();
+async function submittedAiSession(client) {
   let session = await (await handleInterview(post({ consent: true, ai: true }), client, 'interviews', 'client-one', false, false, undefined, true)).json();
   for (const move of MOVES) {
     const original = move.id === 'convergence' ? 'Direction\nOutcome one\nOutcome two\nOutcome three' : `${move.id} response`;
     session = await (await handleInterview(post({ move: move.id, original }), client,
       `interviews/${session.id}/answers`, 'client-one')).json();
   }
+  const ask = async () => { throw new Error('submit must not call the AI draft'); };
+  return (await handleInterview(post({ correctedSummary: 'My corrected summary' }), client,
+    `interviews/${session.id}/submit`, 'client-one', false, false, ask)).json();
+}
+const inTransaction = client => async work => work(client);
+
+test('submit saves the guided draft at once and leaves the AI draft pending', async () => {
+  const session = await submittedAiSession(memoryClient());
+  assert.equal(session.status, 'submitted');
+  assert.equal(session.ai_draft, 'pending');
+  assert.equal(session.draft.processing, 'guided, no AI');
+  assert.equal(session.draft.approvalStatus, 'Draft');
+});
+
+test('background AI draft replaces the guided draft as a sourced proposal even when model claims approval', async () => {
+  const client = memoryClient();
+  const session = await submittedAiSession(client);
   const item = (text, sources) => ({ text, sources });
   let draftRequest;
   const modelOutput = JSON.stringify({ approvalStatus: 'Approved',
@@ -108,29 +126,32 @@ test('AI draft output is recorded as a sourced proposal even when model claims a
     outcomes: [item('Outcome one', [session.answers[5].id]), item('Outcome two', [session.answers[5].id]), item('Outcome three', [session.answers[5].id])],
     boundaries: [item('Experts decide', [session.answers[4].id])], hypotheses: [{ question: 'Test demand', sources: [session.answers[3].id] }],
   });
-  session = await (await handleInterview(post({ correctedSummary: 'My corrected summary' }), client,
-    `interviews/${session.id}/submit`, 'client-one', false, false, async request => { draftRequest = request; return modelOutput; })).json();
-  assert.equal(draftRequest.timeoutMs, 22000);
+  assert.equal(await writeAiDraft(session.id, 'client-two', inTransaction(client), async () => modelOutput), 'skipped');
+  assert.equal(await writeAiDraft(session.id, 'client-one', inTransaction(client), async request => { draftRequest = request; return modelOutput; }), 'done');
+  assert.equal(draftRequest.timeoutMs, 120000);
   assert.equal(draftRequest.maxTokens, 4500);
-  assert.equal(session.draft.processing, 'AI-assisted draft, human review required');
-  assert.equal(session.draft.approvalStatus, 'Draft');
-  assert.equal(session.draft.candidates[0].sources[0].answerId, session.answers[0].id);
-  assert.equal(session.status, 'submitted');
+  assert.match(draftRequest.input, /<corrected_summary>My corrected summary<\/corrected_summary>/);
+  const stored = client.sessions.get(session.id);
+  assert.equal(stored.ai_draft, 'done');
+  assert.equal(stored.draft.processing, 'AI-assisted draft, human review required');
+  assert.equal(stored.draft.approvalStatus, 'Draft');
+  assert.equal(stored.draft.candidates[0].sources[0].answerId, session.answers[0].id);
+  assert.equal(stored.status, 'submitted');
+  // A second start (another tab, a reload) does not call the AI again.
+  assert.equal(await writeAiDraft(session.id, 'client-one', inTransaction(client), async () => { throw new Error('called twice'); }), 'skipped');
 });
 
 test('a failed AI draft keeps the guided draft and records only a fixed reason', async () => {
   const client = memoryClient();
-  let session = await (await handleInterview(post({ consent: true, ai: true }), client, 'interviews', 'client-one', false, false, undefined, true)).json();
-  for (const move of MOVES) {
-    const original = move.id === 'convergence' ? 'Direction\nOutcome one\nOutcome two\nOutcome three' : `${move.id} response`;
-    session = await (await handleInterview(post({ move: move.id, original }), client,
-      `interviews/${session.id}/answers`, 'client-one')).json();
-  }
-  session = await (await handleInterview(post({ correctedSummary: 'Summary' }), client, `interviews/${session.id}/submit`,
-    'client-one', false, false, async () => JSON.stringify({ candidates: [{ text: 'Participant secret is final', sources: [] }] }))).json();
-  assert.equal(session.draft.approvalStatus, 'Draft');
-  assert.equal(session.draft.aiFallbackReason, 'AI draft incomplete.');
-  assert.doesNotMatch(JSON.stringify(session.draft), /Participant secret/);
+  const session = await submittedAiSession(client);
+  assert.equal(await writeAiDraft(session.id, 'client-one', inTransaction(client),
+    async () => JSON.stringify({ candidates: [{ text: 'Participant secret is final', sources: [] }] })), 'failed');
+  const stored = client.sessions.get(session.id);
+  assert.equal(stored.ai_draft, 'failed');
+  assert.equal(stored.draft.processing, 'guided, no AI');
+  assert.equal(stored.draft.approvalStatus, 'Draft');
+  assert.equal(stored.draft.aiFallbackReason, 'AI draft incomplete.');
+  assert.doesNotMatch(JSON.stringify(stored.draft), /Participant secret/);
 });
 
 test('Continue without AI makes no AI call, and AI cannot be chosen while it is off', async () => {
@@ -152,4 +173,6 @@ test('Continue without AI makes no AI call, and AI cannot be chosen while it is 
   session = await (await handleInterview(post({ correctedSummary: 'Summary' }), client, `interviews/${session.id}/submit`, 'client-one', false, false, ask)).json();
   assert.equal(session.draft.processing, 'guided, no AI');
   assert.equal(session.draft.aiFallbackReason, undefined);
+  assert.equal(session.ai_draft, null);
+  assert.equal(await writeAiDraft(session.id, 'client-one', inTransaction(client), ask), 'skipped');
 });

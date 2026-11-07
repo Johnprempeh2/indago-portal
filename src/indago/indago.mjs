@@ -15,6 +15,11 @@ export function makeIndagoApi(fetcher = fetch) {
     async challengeInterviewAnswer(id, answerId) { return call(`interviews/${id}/challenges`, { answerId }); },
     async replyToInterviewChallenge(id, challengeId, reply) { return call(`interviews/${id}/replies`, { challengeId, reply }); },
     async submitInterview(id, correctedSummary) { return call(`interviews/${id}/submit`, { correctedSummary }); },
+    // Starts the AI draft in a Netlify background function. It answers 202 at once; poll the session for the result.
+    async startInterviewDraft(id) {
+      const response = await fetcher(`/.netlify/functions/indago-draft-background?id=${encodeURIComponent(id)}`, { method: 'POST', credentials: 'same-origin' });
+      if (!response.ok) throw new Error('The AI draft could not start.');
+    },
     async membership() { return call('membership'); },
     async snapshot() { return call('snapshot'); },
     async recentHistory() { return call('history'); },

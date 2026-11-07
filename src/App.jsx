@@ -11,7 +11,7 @@ const interviewApi = (() => {
   const api = makeIndagoApi();
   return { list: api.listInterviews, get: api.getInterview, create: api.createInterview,
     answer: api.saveInterviewAnswer, challenge: api.challengeInterviewAnswer,
-    reply: api.replyToInterviewChallenge, submit: api.submitInterview };
+    reply: api.replyToInterviewChallenge, submit: api.submitInterview, draft: api.startInterviewDraft };
 })();
 
 export default function App() {
