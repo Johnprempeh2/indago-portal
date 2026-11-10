@@ -46,4 +46,4 @@ If the MCP is not live, follow the fallback on GRE-4341: a draft answer sheet on
 
 ## Rollback
 
-Export `indago.mcp_drafts` and `indago.mcp_audit`, then run `netlify/database/migrations/0010_deep_dive_mcp/rollback.sql`. Approved rows already in sheets stay.
+Export `indago.mcp_drafts` and `indago.mcp_audit`, then run `netlify/database/migrations/0014_deep_dive_mcp/rollback.sql`. Approved rows already in sheets stay.

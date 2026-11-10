@@ -1,7 +1,7 @@
 // Deep Dive MCP (GRE-4341): the protocol, the tools and their input checks. Same shape as the website's
 // portal MCP (GRE-1228): JSON-RPC over one POST, tools only, no SDK and so no dependency to review.
 //
-// Security lives in the database (migration 0010_deep_dive_mcp): every tool calls one indago.mcp_* function
+// Security lives in the database (migration 0014_deep_dive_mcp): every tool calls one indago.mcp_* function
 // with the SHA-256 of the caller's token and the engagement it asks about; the function refuses a token
 // for another engagement. Agents write DRAFTS only. A facilitator approves them in the portal.
 
@@ -183,7 +183,7 @@ export const publicTools = () => TOOLS.map(({ rpc, ...t }) => t);
 
 // ── errors ────────────────────────────────────────────────────────────────────────────────────
 
-// Database errors whose message is ours (0010) and safe to pass on; anything else gets a general line.
+// Database errors whose message is ours (0014) and safe to pass on; anything else gets a general line.
 const PASS_CODES = new Set(['P0002', '42501', '23514', '40001', '23505', '23502', '22P02', '22023']);
 export const GENERAL_ERROR = 'The Deep Dive portal could not do this just now. Try again; if it keeps failing, say so on your task.';
 export const TOKEN_ERROR = 'invalid or revoked token';
