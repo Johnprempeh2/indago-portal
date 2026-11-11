@@ -154,20 +154,20 @@ function AiNotice({ open = false }) {
 // A session that chose Continue without AI gets the same notice without the AI lines (Mikey, GRE-3641).
 export function NoticeList({ ai }) {
   if (!ai) return <ul className="notice">
-    <li>No AI service is used in this interview. Guided questions follow a fixed order, and your answers are not sent to an AI service.</li>
-    <li>Your answers and the draft are stored in the Indago portal for <strong>[retention period – John to set]</strong>. Only you and the Greatstone team on this project can read them: <strong>[names or roles – set per session]</strong>.</li>
+    <li>No AI service is used. Guided questions follow a fixed order.</li>
+    <li>Your answers and the draft are stored in the Indago portal until you or your organisation ask us to delete them. Only you, the Greatstone team on this project and your organisation's named sponsor for this project can read them.</li>
     <li>A Greatstone facilitator reviews every draft with you, and you can correct it. No North Star is approved without Gordon's confirmation.</li>
-    <li>Questions or a request to delete your answers: <strong>[contact – John to set]</strong>.</li>
+    <li>Questions or a request to delete your answers: <strong><a href="mailto:DX@greatstonesoftware.co.uk">DX@greatstonesoftware.co.uk</a></strong>.</li>
   </ul>;
   return <ul className="notice">
     <li>An AI service helps run this conversation. It reads your answers to choose the next question, to ask a follow-up when you press <strong>Challenge my response</strong>, and to draft a summary at the end.</li>
     <li>The AI service is Claude, provided by Anthropic. Your answers are sent to it only for this conversation.</li>
     <li>Anthropic does not use your answers to train its models, and neither does Greatstone.</li>
     <li>Anthropic keeps the text it receives for up to <strong>30 days</strong> and then deletes it, unless it is needed to investigate misuse.</li>
-    <li>Your answers and the draft are stored in the Indago portal for <strong>[retention period – John to set]</strong>. Only you and the Greatstone team on this project can read them: <strong>[names or roles – set per session]</strong>.</li>
+    <li>Your answers and the draft are stored in the Indago portal until you or your organisation ask us to delete them. Only you, the Greatstone team on this project and your organisation's named sponsor for this project can read them.</li>
     <li>Nothing the AI writes is final. A Greatstone facilitator reviews every draft with you, and you can correct it. No North Star is approved without Gordon's confirmation.</li>
     <li>If you prefer not to use AI, choose <strong>Continue without AI</strong>. You get the same topics, as guided questions in a fixed order, and your answers are not sent to an AI service.</li>
-    <li>Questions or a request to delete your answers: <strong>[contact – John to set]</strong>.</li>
+    <li>Questions or a request to delete your answers: <strong><a href="mailto:DX@greatstonesoftware.co.uk">DX@greatstonesoftware.co.uk</a></strong>.</li>
   </ul>;
 }
 

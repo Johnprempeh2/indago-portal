@@ -21,6 +21,11 @@ test('a guided session notice never says an AI service runs the interview', asyn
     assert.doesNotMatch(guided, /AI service helps|Claude|Anthropic|AI writes/);
     assert.match(guided, /stored in the Indago portal/);
     assert.match(guided, /request to delete your answers/);
+    for (const notice of [guided, render(true)]) {
+      assert.match(notice, /stored in the Indago portal until you or your organisation ask us to delete them\. Only you, the Greatstone team on this project and your organisation&#x27;s named sponsor for this project can read them\./);
+      assert.match(notice, /<a href="mailto:DX@greatstonesoftware\.co\.uk">DX@greatstonesoftware\.co\.uk<\/a>/);
+      assert.doesNotMatch(notice, /John to set|set per session/);
+    }
     const ai = render(true);
     assert.match(ai, /An AI service helps run this conversation/);
     assert.match(ai, /same topics/);
